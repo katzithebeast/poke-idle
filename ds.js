@@ -10,8 +10,9 @@
    ===================================================================== */
 
 const SKIN = { w: 2176, h: 1812 };
-const SCREEN_TOP = { x: 665, y: 113, w: 846, h: 634 };
-const SCREEN_BOT = { x: 665, y: 1058, w: 846, h: 635 };
+// bílá plocha displejů v kabátku (změřeno) + 1 px rezerva, ať nikde neprosvítá okraj
+const SCREEN_TOP = { x: 664, y: 109, w: 848, h: 638 };
+const SCREEN_BOT = { x: 664, y: 1053, w: 848, h: 638 };
 const MIDDLE = { x: 540, w: 1100 };   // pás mezi D-padem a ABXY – tam se otevírají okna
 // tlačítka konzole (v pixelech obrázku): střed + poloměr dotykové plochy
 const DS_BUTTONS = {
@@ -322,4 +323,28 @@ try {
 relayout();
 updateLayoutBtn();
 dsRender();
+
+/* ---------- Načítací obrazovka (index.html #loader): zmizí, až je všechno připravené ----------
+   čeká na fonty, kabátek, rozložené sprity obou pokémonů a první vykreslení arény
+   (max. 8 s, aby offline / pomalá síť nezasekla start), ukáže se aspoň 1,2 s */
+(async () => {
+  const loader = document.getElementById('loader'), status = document.getElementById('loaderStatus');
+  if (!loader) return;
+  const say = t => { if (status) status.textContent = t; };
+  const until = (cond, ms) => new Promise(res => {
+    const t0 = performance.now();
+    const tick = () => (cond() || performance.now() - t0 > ms) ? res() : setTimeout(tick, 100);
+    tick();
+  });
+  say('fonty a kabátek…');
+  const skin = new Image();
+  skin.src = 'assets/ds_skin.jpg';
+  await Promise.race([Promise.all([document.fonts?.ready, skin.decode().catch(() => {})]), wait(6000)]);
+  say('pokémoni…');
+  await until(() => spritePlayers.has(playerBox) && spritePlayers.has(enemyBox), 8000);
+  await until(() => performance.now() > 1200, 1200);
+  say('hotovo');
+  loader.classList.add('done');
+  setTimeout(() => loader.remove(), 700);
+})();
 setInterval(dsRender, 400);

@@ -1337,7 +1337,7 @@ body.ds #dsTopBar, body.ds #dsHint{
   -webkit-font-smoothing:none;
 }
 body.ds #dsTopBar{ top:var(--oy); height:var(--ty); height:calc(var(--ty) - var(--oy)); }
-body.ds #dsHint{ top:calc(var(--by) + var(--bh)); height:var(--botbar); font-size:calc(var(--tw) / 52); gap:2px; letter-spacing:0; }
+body.ds #dsHint{ top:calc(var(--by) + var(--bh)); height:var(--botbar); font-size:calc(var(--tw) / 60); gap:2px; letter-spacing:0; }
 #dsHint kbd{ font:inherit; color:#fff; background:#3a3a46; padding:.15em .4em .05em; margin:0 .15em; box-shadow:0 2px 0 #000; }
 
 /* spodní displej */
@@ -1568,9 +1568,48 @@ body.ds .evo-text, body.ds .evo-overlay .btn{ zoom:var(--pz); }
 
 /* čísla poškození, mince a hlášky nad pokémony v měřítku horního displeje */
 body.ds .coin-float{ zoom:var(--pz); }
+
+/* načítací obrazovka */
+#loader{
+  position:fixed; inset:0; z-index:1000;
+  display:flex; flex-direction:column; align-items:center; justify-content:center; gap:22px;
+  background:#000; color:#fff;
+  font-family:'Silkscreen', monospace; -webkit-font-smoothing:none;
+  transition:opacity .6s steps(6);
+}
+#loader.done{ opacity:0; pointer-events:none; }
+#loaderBall{ width:72px; height:72px; image-rendering:pixelated; animation:ballRoll 1.6s steps(16) infinite; }
+@keyframes ballRoll{
+  0%{ transform:translateX(-60px) rotate(-360deg); }
+  50%{ transform:translateX(60px) rotate(0deg); }
+  100%{ transform:translateX(-60px) rotate(-360deg); }
+}
+.loader-text{ font-size:20px; letter-spacing:.3em; animation:loadBlink 1s steps(2) infinite; }
+.loader-status{ font-size:11px; letter-spacing:.1em; color:#8a8aa0; text-transform:uppercase; }
+@keyframes loadBlink{ 50%{ opacity:.35; } }
 </style>
 </head>
 <body>
+<!-- načítací obrazovka: kutálející se pokéball; zmizí, až je hra připravená (ds.js) -->
+<div id="loader">
+  <canvas id="loaderBall" width="16" height="16"></canvas>
+  <div class="loader-text">LOADING</div>
+  <div class="loader-status" id="loaderStatus">aktualizace…</div>
+</div>
+<script>
+/* pixelový pokéball pro načítání – kreslí se hned, ještě než se načte zbytek hry */
+(() => {
+  const c = document.getElementById('loaderBall').getContext('2d'), n = 16, r = n / 2;
+  for (let y = 0; y < n; y++) for (let x = 0; x < n; x++){
+    const dx = x + .5 - r, dy = y + .5 - r, d = Math.hypot(dx, dy);
+    if (d > r - .1) continue;
+    let col = d > r - 1.1 || Math.abs(dy) < 1.1 ? '#16121e' : dy < 0 ? (dx < -2 && dy < -3 ? '#ff8a78' : '#e83a3a') : (dx > 2 && dy > 3 ? '#a8a8c0' : '#ececf4');
+    if (d < n * .2) col = d < n * .13 ? '#ffffff' : '#16121e';
+    if (Math.hypot(x + .5 - 5, y + .5 - 4) < 1.2) col = '#ffffff';
+    c.fillStyle = col; c.fillRect(x, y, 1, 1);
+  }
+})();
+</script>
 <div class="scene-shell" id="shell">
   <div class="scene" id="scene">
     <div class="world" id="world">
