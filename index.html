@@ -3,9 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Silkscreen:wght@400;700&family=Pixelify+Sans:wght@400;600&display=swap" rel="stylesheet">
+<link href="vendor/fonts/fonts.css" rel="stylesheet">   <!-- fonty Silkscreen + Pixelify Sans uložené v projektu (běží i offline / v APK) -->
 <title>Poké Idle – Clean Battle Scene</title>
 <script>
 /* Vývojářský režim = oddělené uložení. Když je zapnutý, všechny klíče "pokeIdle.*"
@@ -602,7 +600,7 @@ body.hunting .nav, body.hunting .battle-info, body.hunting .pop{ display:none; }
   position:fixed; left:-999px; top:0; z-index:40;
   width:210px;
   padding:7px 10px 8px;
-  transform:translate(-50%, -100%) scale(var(--zoom, 1));
+  transform:translate(-50%, -100%) scale(var(--pz, var(--zoom, 1)));
   transform-origin:50% 100%;
   color:var(--ink);
   background:var(--cream);
@@ -1300,6 +1298,127 @@ body.theme-dark .reveal-badge.old{ background:rgba(255,255,255,.12); color:#fff;
   background:rgba(127,127,127,.15); color:inherit;
 }
 .dev-shiny{ display:flex; align-items:center; gap:4px; font-size:13px; }
+
+/* =====================================================================
+   DS rozložení (ds.js): kabátek DSi přes celou obrazovku, horní displej = souboj,
+   spodní = info + menu, okna v pásu mezi tlačítky, nápověda v rámečku konzole.
+   Proměnné --tx/--ty/--tw/--th (horní displej), --bx… (spodní), --mx/--mw (pás) nastavuje JS.
+   Prvky se zoomem mají pozici dělenou zoomem (zoom násobí i left/top).
+   ===================================================================== */
+#ds, #dsPanel, #dsTopBar, #dsHint{ display:none; }
+body.ds{ background:#000; }
+body.ds #ds{
+  display:block; position:fixed; z-index:0;
+  left:var(--ox); top:var(--oy); width:var(--sw); height:var(--sh);
+  background:url(assets/ds_skin.png) 0 0 / 100% 100% no-repeat;
+}
+#dsButtons{ position:absolute; inset:0; z-index:96; pointer-events:none; }
+body.ds #dsButtons{ position:fixed; left:var(--ox); top:var(--oy); width:var(--sw); height:var(--sh); }
+.ds-btn{ position:absolute; border-radius:50%; pointer-events:auto; touch-action:none; cursor:pointer; -webkit-tap-highlight-color:transparent; }
+.ds-btn.down{ background:radial-gradient(circle, rgba(0,0,0,.38) 0 55%, transparent 70%); }
+.ds-btn[data-btn="start"], .ds-btn[data-btn="select"], .ds-btn[data-btn="power"]{ border-radius:40px; }
+body.ds .scene-shell{ inset:auto; left:var(--tx); top:var(--ty); width:var(--tw); height:var(--th); z-index:1; }
+body.ds .nav, body.ds .hud, body.ds .boss-call{ display:none !important; }
+body.ds, body.ds *{ -webkit-tap-highlight-color:transparent; }
+
+/* horní displej: hlášky a cedulky v jeho měřítku */
+body.ds .toasts{
+  zoom:var(--pz); top:calc((var(--ty) + 6px) / var(--pz)); left:calc((var(--tx) + var(--tw) / 2) / var(--pz));
+  width:calc(var(--tw) / var(--pz) - 20px); gap:6px;
+}
+body.ds .toast{ font-size:15px; padding:6px 10px; max-width:100%; box-sizing:border-box; }
+
+/* rámeček konzole: nahoře kde jsi, dole nápověda ovládání */
+body.ds #dsTopBar, body.ds #dsHint{
+  display:flex; align-items:center; justify-content:center;
+  position:fixed; z-index:97; left:var(--tx); width:var(--tw);
+  font:700 calc(var(--topbar) * .26) var(--font-title); letter-spacing:.06em; text-transform:uppercase;
+  color:#cfd2dc; text-shadow:0 2px 0 #000; white-space:nowrap; overflow:hidden; pointer-events:none;
+  -webkit-font-smoothing:none;
+}
+body.ds #dsTopBar{ top:var(--oy); height:var(--ty); height:calc(var(--ty) - var(--oy)); }
+body.ds #dsHint{ top:calc(var(--by) + var(--bh)); height:var(--botbar); font-size:calc(var(--botbar) * .165); gap:2px; letter-spacing:0; }
+#dsHint kbd{ font:inherit; color:#fff; background:#3a3a46; padding:.15em .4em .05em; margin:0 .15em; box-shadow:0 2px 0 #000; }
+
+/* spodní displej */
+body.ds #dsPanel{
+  display:flex; flex-direction:column; gap:10px;
+  position:fixed; z-index:30; box-sizing:border-box;
+  zoom:var(--dsk);
+  left:calc(var(--bx) / var(--dsk)); top:calc(var(--by) / var(--dsk));
+  width:calc(var(--bw) / var(--dsk)); height:calc(var(--bh) / var(--dsk));
+  padding:12px 14px;
+  color:var(--w-fg); background:var(--w-bg);
+  font-family:var(--font-body); -webkit-font-smoothing:none;
+  overflow:hidden;
+}
+body.ds.theme-dark #dsPanel{ background:#14142a; }
+body.ds.hunting #dsPanel, body.ds.bossing #dsPanel{ visibility:hidden; }
+.dsp-head{ display:flex; align-items:flex-start; gap:10px; }
+.dsp-loc{ flex:1; display:flex; flex-direction:column; gap:2px; min-width:0; }
+.dsp-loc b{ font:700 15px var(--font-title); }
+.dsp-loc span{ font-size:12px; color:var(--w-muted); }
+.dsp-coins{ display:flex; align-items:center; gap:5px; font:700 14px var(--font-title); color:var(--gold-lo); }
+body.theme-dark .dsp-coins{ color:var(--gold); }
+.dsp-coins img.coin{ width:16px; height:16px; }
+.dsp-mons{ display:flex; flex-direction:column; gap:4px; }
+.dsp-mon{ display:flex; align-items:center; gap:8px; }
+.dsp-mon img{ width:56px; height:56px; image-rendering:pixelated; margin:-8px -4px -8px -8px; }
+.dsp-info{ flex:1; display:flex; flex-direction:column; gap:4px; min-width:0; }
+.dsp-name{ font:700 12px var(--font-title); display:flex; align-items:center; gap:5px; white-space:nowrap; }
+.dsp-name em{ font-style:normal; margin-left:auto; color:var(--w-muted); }
+.dsp-info .hpbar{ height:6px; background:var(--w-track); box-shadow:0 0 0 2px var(--w-track-line); }
+.dsp-sub{ font-size:12px; color:var(--w-muted); }
+.dsp-sub.bad{ color:#e0483a; }
+.dsp-vs{ font-size:12px; color:var(--w-muted); padding-left:2px; }
+.dsp-boss{
+  all:unset; cursor:pointer; box-sizing:border-box;
+  padding:7px 10px; font:12px var(--font-body); text-align:center;
+  color:var(--ink); background:var(--gold); box-shadow:var(--w-btn-frame);
+  animation:bossPulse 1.2s steps(2) infinite;
+}
+.dsp-boss[hidden]{ display:none; }
+.dsp-tiles{ flex:1; min-height:0; display:grid; grid-template-columns:repeat(3, 1fr); gap:8px; }
+.dsp-tile{
+  all:unset; cursor:pointer; box-sizing:border-box;
+  display:flex; flex-direction:column; align-items:center; justify-content:center; gap:4px;
+  background:var(--w-card); box-shadow:var(--w-card-frame);
+  font:700 11px var(--font-title); text-transform:uppercase; letter-spacing:.04em;
+}
+.dsp-tile canvas{ width:32px; height:32px; image-rendering:pixelated; }
+.dsp-tile small{ font-size:8px; color:var(--w-faint); }
+.dsp-tile:active{ background:var(--w-card-h); }
+
+/* výběr D-padem */
+.ds-focus{ outline:3px solid var(--gold) !important; outline-offset:2px; }
+
+/* lov a boss: ovládání na spodním displeji */
+body.ds .hunt-hud, body.ds .boss-hud{
+  zoom:var(--dsk); transform:none; right:auto; bottom:auto; max-width:none; box-sizing:border-box;
+  left:calc(var(--bx) / var(--dsk)); top:calc(var(--by) / var(--dsk));
+  width:calc(var(--bw) / var(--dsk)); height:calc(var(--bh) / var(--dsk));
+  justify-content:center; gap:14px; padding:16px 18px; filter:none; z-index:31;
+}
+body.ds .hunt-hud .actions .btn, body.ds .hunt-hud .actions .pbtn, body.ds .boss-actions .btn{ flex:1; justify-content:center; padding:14px; }
+body.ds .hunt-hud .actions{ width:100%; }
+
+/* menu Nastavení / Aréna přes spodní displej */
+body.ds .pop{
+  zoom:var(--dsk); box-sizing:border-box; bottom:auto; max-height:none; min-width:0;
+  left:calc(var(--bx) / var(--dsk)); top:calc(var(--by) / var(--dsk));
+  width:calc(var(--bw) / var(--dsk)); height:calc(var(--bh) / var(--dsk));
+}
+
+/* okna (Tým, Obchod, Deník, ruleta…) v pásu mezi D-padem a tlačítky; kabátek zůstane vidět */
+body.ds .dm, body.ds .journal, body.ds .case, body.ds .reveal{ left:var(--mx); right:auto; width:var(--mw); top:var(--oy); bottom:auto; height:calc(var(--by) + var(--bh) - var(--oy)); }
+body.ds.modal-open #dsTopBar{ opacity:0; }
+body.ds .dm-box, body.ds .journal-box{ width:calc((var(--mw) - 10px) / var(--zoom)); max-height:calc((var(--by) + var(--bh) - var(--oy) - 10px) / var(--zoom)); }
+body.ds .journal-box{ height:calc((var(--by) + var(--bh) - var(--oy) - 10px) / var(--zoom)); }
+body.ds .team-wrap{ flex-direction:column; overflow-y:auto; }
+body.ds .team-wrap > .dm-body{ overflow:visible; flex:none; }
+body.ds .side-detail{ width:auto; overflow:visible; box-shadow:inset 0 3px 0 var(--w-line); }
+body.ds .detail-box{ grid-template-columns:1fr; }
+body.ds .case-box, body.ds .reveal-card{ zoom:var(--zoom); max-width:calc((var(--mw) - 10px) / var(--zoom)); }
 </style>
 </head>
 <body>
@@ -1573,6 +1692,7 @@ body.theme-dark .reveal-badge.old{ background:rgba(255,255,255,.12); color:#fff;
   <div class="label" id="spriteInfo"></div>
 </div>
 
+<script src="vendor/gifuct.js"></script>
 <script src="pixel_arenas.js"></script>
 <script src="pokemon_data.js"></script>
 <script src="pixel_sprites.js"></script>
@@ -1979,7 +2099,6 @@ mons.forEach(box => {
    Animované sprity z PokeAPI (Black/White) mají v jednom GIFu:
      [ idle smyčka ][ idle smyčka ]...[ akce – vzepnutí, štěknutí… ]
    GIF tu rozložíme na snímky, najdeme hranici a přehráváme části zvlášť. */
-const GIFUCT_URL = 'https://cdn.jsdelivr.net/npm/gifuct-js@2.1.2/+esm';
 const ACTION_SPEED = 1.4;          // akce při útoku hraje o něco rychleji
 const spritePlayers = new Map();   // box -> přehrávač
 
@@ -2039,7 +2158,7 @@ function splitIdleAction(data){
 }
 
 async function loadGifSprite(url){
-  const { parseGIF, decompressFrames } = await import(GIFUCT_URL);
+  const { parseGIF, decompressFrames } = window.gifuct;   // vendor/gifuct.js (gifuct-js 2.1.2, běží i offline / v APK)
   const res = await fetch(url);
   if (!res.ok) throw new Error('HTTP ' + res.status);
   const gif = parseGIF(await res.arrayBuffer());
@@ -3030,5 +3149,6 @@ animate();
 <script src="boss.js"></script>
 <script src="offline.js"></script>
 <script src="dev.js"></script>
+<script src="ds.js"></script>
 </body>
 </html>

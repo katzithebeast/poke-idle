@@ -272,10 +272,12 @@ function visibleTop(box){
 function placePlates(){
   for (const [plate, box] of [[$('enemyInfo'), enemyBox], [$('playerInfo'), playerBox]]){
     if (box.hidden || hunt){ plate.style.left = '-999px'; continue; }
-    const p = visibleTop(box), k = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--zoom')) || 1;
-    const w = plate.offsetWidth * k / 2 + 10, h = plate.offsetHeight * k + 12;
-    plate.style.left = Math.min(innerWidth - w, Math.max(w, p.x)) + 'px';
-    plate.style.top = Math.max(h, p.y - 10 * k) + 'px';
+    const cs = getComputedStyle(document.documentElement);
+    const p = visibleTop(box), k = parseFloat(cs.getPropertyValue('--pz')) || parseFloat(cs.getPropertyValue('--zoom')) || 1;
+    const sr = shell.getBoundingClientRect();   // v DS rozložení = horní displej
+    const w = plate.offsetWidth * k / 2 + 6, h = plate.offsetHeight * k + 8;
+    plate.style.left = Math.min(sr.right - w, Math.max(sr.left + w, p.x)) + 'px';
+    plate.style.top = Math.max(sr.top + h, p.y - 10 * k) + 'px';
   }
   requestAnimationFrame(placePlates);
 }

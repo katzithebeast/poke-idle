@@ -63,7 +63,7 @@ async function startBoss(){
   enemyBox._faintAnims = null;
   setMonSprite(enemyBox, { id: def.id, shiny: false });
   setState(enemyBox, 'idle');
-  bossMsg.textContent = 'Zastav ukazatel uprostřed (mezerník / klik)';
+  bossMsg.textContent = 'Zastav ukazatel uprostřed (A, mezerník nebo ťuk)';
   bossHud.classList.add('open');
   await fadeTo(0);
   toast(`${def.title} ${NAMES[def.id - 1]} (Lv ${lvl}) přijímá výzvu!`, true);

@@ -1,0 +1,6 @@
+{
+  "appId": "cz.gevlyn.pokeidle",
+  "appName": "Poké Idle",
+  "webDir": "www",
+  "android": { "backgroundColor": "#000000" }
+}

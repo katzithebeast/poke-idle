@@ -15,6 +15,9 @@ Stačí otevřít `index.html` v prohlížeči (potřebuje internet kvůli sprit
 - `battle.js` – idle souboj s HP a typy, HP lišty se jmény, divocí pokémoni podle arény, odemykání arén
 - `boss.js` – Pán arény: aktivní souboj s načasováním útoku, jeho porážka odemkne další arénu
 - `offline.js` – dopočítání soubojů, když hra neběžela (max. 8 h, poloviční odměny) + okno „Zatímco jsi byl pryč“
+- `ds.js` – DS rozložení pro rozložený Galaxy Z Fold (kabátek `assets/ds_skin.png`, ovládání tlačítky konzole, nápověda)
+- `vendor/` – knihovna gifuct-js a fonty uložené v projektu (hra nepotřebuje CDN, běží i v APK)
+- `app/` – Android obal (Capacitor) → APK
 - `dev.js` – vývojářský režim: samostatné testovací uložení (`pokeIdleDev.*`) a nástroje (mince, levely, evoluce, arény, boss, offline…)
 - `evolve.js` – evoluce s animací, předměty v Týmu (Lektvar, Oživení, Rare Candy) a spojování duplikátů na +1 ★
 
@@ -45,3 +48,20 @@ Duplikát stejného druhu jde v Týmu spojit → +1 ★ (max 5). Obchod → Pře
 - **UI při nečinnosti**: vždy vidět / ztlumit / skrýt ovládání (životy zůstanou) / skrýt vše.
 - **Vývojářský režim**: přepne hru do samostatného testovacího uložení s dev nástroji.
   Normální hra zůstává nedotčená – vypnutím se k ní vrátíš. Dev uložení jde smazat.
+
+## DS rozložení (Fold)
+Nastavení → Rozložení: automaticky (DS na dotykovém displeji na šířku / v APK), DS, klasické.
+V prohlížeči jde vynutit `index.html?ds=1`. Tlačítka konzole: D-pad = výběr, A = potvrdit,
+B = zpět, X = Tým, Y = Obchod, START = menu, SELECT = auto boj, POWER = celá obrazovka.
+V APK funguje systémové Zpět jako B.
+
+## APK (Android)
+Potřeba: JDK 21 (`brew install openjdk@21`) a Android SDK (`~/Library/Android/sdk`).
+```
+cd app
+npm install            # jen poprvé
+JAVA_HOME=/opt/homebrew/opt/openjdk@21 npm run apk
+```
+APK: `app/android/app/build/outputs/apk/debug/app-debug.apk`. Hra se do APK kopíruje při každém
+`npm run apk` (skript `build-www.mjs`), takže po změně stačí build pustit znovu.
+Sprity pokémonů se stahují z GitHubu (PokeAPI) – APK potřebuje internet, stažené zůstanou v cache.
