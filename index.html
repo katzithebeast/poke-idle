@@ -1,0 +1,1974 @@
+<!doctype html>
+<html lang="cs">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Silkscreen:wght@400;700&family=Pixelify+Sans:wght@400;600&display=swap" rel="stylesheet">
+<title>Poké Idle – Clean Battle Scene</title>
+<style>
+html,body{height:100%;margin:0}
+body{
+  overflow:hidden;
+  background:#0a1320;
+  font-family:monospace;
+}
+.scene-shell{
+  position:fixed;
+  inset:0;
+  overflow:hidden;
+  background:#0a0610;
+}
+.scene{
+  position:absolute;
+  inset:-4%;
+  overflow:hidden;
+}
+.world{
+  position:absolute;
+  inset:0;
+  z-index:5;
+  will-change:transform;
+  pointer-events:none;
+}
+/* Pokémon = obal (pozice + scale) se stínem a spritem uvnitř.
+   left = střed pokémona, bottom = jeho "nohy". */
+.mon{
+  position:absolute;
+  transform:translateX(-50%) scale(var(--scale,1));
+  transform-origin:50% 100%;
+  pointer-events:auto;
+  cursor:grab;
+  touch-action:none;
+}
+.mon.dragging{ cursor:grabbing; z-index:20; }
+.mon.selected .pokemon{
+  filter:drop-shadow(0 8px 12px rgba(0,0,0,.20)) drop-shadow(0 0 3px #fff) drop-shadow(0 0 6px #ffd84a);
+}
+.mon.player{ left:20.5%; bottom:14.5%; width:255px; }
+.mon.enemy { left:73.5%; bottom:29.5%; width:190px; }
+
+/* stín: kontejner s nulovou výškou přesně na linii nohou (spodek spritu);
+   uvnitř pixelové plátno se zplácnutou siluetou pokémona – stejná mřížka jako sprite */
+.shadow{
+  position:absolute;
+  left:0;
+  right:0;
+  bottom:0;
+  height:0;
+  transform-origin:50% 0;
+  will-change:transform;
+  pointer-events:none;
+}
+.shadow-px{
+  position:absolute;
+  left:0;
+  top:0;
+  width:100%;                    /* přesnou šířku a posun nastaví JS podle velikosti stínu */
+  image-rendering:pixelated;
+}
+
+/* vrstva pro akční animace (útok, zásah) – nezasahuje do pozice ani scale */
+.anim{ position:relative; will-change:transform; }
+
+.pokemon{
+  position:relative;
+  display:block;
+  width:100%;
+  image-rendering:pixelated;
+  filter:drop-shadow(0 8px 12px rgba(0,0,0,.20));
+  will-change:transform;
+  user-select:none;
+  -webkit-user-drag:none;
+  pointer-events:none;
+}
+
+.vignette{
+  position:absolute;
+  inset:0;
+  z-index:10;
+  pointer-events:none;
+  background:
+    radial-gradient(circle at center, transparent 52%, rgba(0,0,0,.10) 78%, rgba(0,0,0,.22) 100%);
+}
+
+/* ---------- Arény ---------- */
+[hidden]{ display:none !important; }
+.arena-bg{
+  position:absolute;
+  inset:0;
+  z-index:1;
+  background-position:center center;
+  background-size:cover;
+  background-repeat:no-repeat;
+  image-rendering:pixelated;
+  will-change:transform;
+  pointer-events:none;
+}
+/* aréna kreslená kódem (pixel_arenas.js) */
+.pixel-arena{
+  width:100%;
+  height:100%;
+  object-fit:cover;
+  image-rendering:pixelated;
+}
+.fade{
+  position:fixed;
+  inset:0;
+  z-index:70;
+  background:#000;
+  opacity:0;
+  pointer-events:none;
+}
+
+/* ---------- Pixel UI ----------
+   Pixelové rámečky = 4 plné stíny bez rozmazání (rohy zůstanou "zubaté"),
+   žádné zaoblení, žádné vyhlazování písma. */
+:root{
+  --ink:#1b1b2f;
+  --cream:#f4eedb; --cream-hi:#ffffff; --cream-lo:#d3c7a2;
+  --slot:#e8dfc2;  --slot-lo:#cbbf98;
+  --red:#d13b3b;   --red-hi:#f0705f;  --red-lo:#8e2430;
+  --blue:#3c6fb0;  --blue-hi:#6ba3e0; --blue-lo:#244a7a;
+  --gold:#f2c230;  --gold-hi:#fff2a8; --gold-lo:#a87b12;
+  --green:#5cb85c; --green-lo:#3a7d3a;
+  --text:#1b1b2f;  --muted:#7a7158;
+  --star-c:#f2c230; --star-hi:#fffbe0;
+  --font-title:'Silkscreen', monospace;
+  --font-body:'Pixelify Sans', monospace;
+}
+.ui-bar, .toasts, .journal, .scale-panel, .arena-menu{
+  -webkit-font-smoothing:none;
+  font-smooth:never;
+  font-family:var(--font-body);
+}
+
+/* rámeček */
+.px-box{
+  --b:4px;
+  background:var(--bg, var(--cream));
+  color:var(--text);
+  box-shadow:
+    0 calc(var(--b) * -1) 0 0 var(--ink), 0 var(--b) 0 0 var(--ink),
+    calc(var(--b) * -1) 0 0 0 var(--ink), var(--b) 0 0 0 var(--ink),
+    inset 0 var(--b) 0 0 var(--hi, var(--cream-hi)),
+    inset 0 calc(var(--b) * -1) 0 0 var(--lo, var(--cream-lo));
+}
+
+/* tlačítko */
+.pbtn{
+  --bg:var(--cream); --hi:var(--cream-hi); --lo:var(--cream-lo); --fg:var(--text);
+  font:14px/1 var(--font-title);
+  text-transform:uppercase;
+  color:var(--fg);
+  background:var(--bg);
+  border:0;
+  border-radius:0;
+  margin:3px;
+  padding:9px 10px 8px;
+  display:inline-flex;
+  align-items:center;
+  gap:6px;
+  cursor:pointer;
+  white-space:nowrap;
+  box-shadow:
+    0 -3px 0 0 var(--ink), 0 3px 0 0 var(--ink), -3px 0 0 0 var(--ink), 3px 0 0 0 var(--ink),
+    inset 0 3px 0 0 var(--hi), inset 0 -3px 0 0 var(--lo);
+}
+.pbtn:hover{ filter:brightness(1.06); }
+.pbtn:active{
+  transform:translateY(2px);
+  box-shadow:
+    0 -3px 0 0 var(--ink), 0 3px 0 0 var(--ink), -3px 0 0 0 var(--ink), 3px 0 0 0 var(--ink),
+    inset 0 3px 0 0 var(--lo);
+}
+.pbtn.active{ --bg:var(--blue); --hi:var(--blue-hi); --lo:var(--blue-lo); --fg:#fff; }
+.pbtn.shiny.active{ --bg:var(--gold); --hi:var(--gold-hi); --lo:var(--gold-lo); --fg:var(--ink); }
+.pbtn.red{ --bg:var(--red); --hi:var(--red-hi); --lo:var(--red-lo); --fg:#fff; }
+.pbtn.small{ font-size:12px; padding:6px 7px 5px; }
+.pbtn:disabled{ opacity:.45; cursor:default; filter:none; transform:none; }
+
+/* pixelová hvězdička (shiny) – 7×7 "pixelů" ze stínů */
+.pstar{
+  display:inline-block;
+  position:relative;
+  width:14px; height:14px;
+  vertical-align:-2px;
+  flex:none;
+}
+.pstar::before{
+  content:'';
+  position:absolute;
+  left:0; top:0;
+  width:2px; height:2px;
+  box-shadow:6px 0px 0 var(--star-c), 6px 2px 0 var(--star-c), 4px 4px 0 var(--star-c), 6px 4px 0 var(--star-hi), 8px 4px 0 var(--star-c), 0px 6px 0 var(--star-c), 2px 6px 0 var(--star-c), 4px 6px 0 var(--star-hi), 6px 6px 0 var(--star-hi), 8px 6px 0 var(--star-hi), 10px 6px 0 var(--star-c), 12px 6px 0 var(--star-c), 4px 8px 0 var(--star-c), 6px 8px 0 var(--star-hi), 8px 8px 0 var(--star-c), 6px 10px 0 var(--star-c), 6px 12px 0 var(--star-c);
+}
+
+/* ---------- Spodní lišta + menu arén ---------- */
+.ui-bar{
+  position:fixed;
+  left:14px;
+  bottom:14px;
+  z-index:50;
+  display:flex;
+  gap:8px;
+  flex-wrap:wrap;
+}
+.ui-bar .pbtn{ filter:drop-shadow(3px 3px 0 rgba(0,0,0,.35)); }
+
+.arena-menu{
+  position:fixed;
+  left:18px;
+  bottom:68px;
+  z-index:55;
+  display:none;
+  flex-direction:column;
+  gap:10px;
+  padding:12px;
+  filter:drop-shadow(5px 5px 0 rgba(0,0,0,.35));
+}
+.arena-menu.open{ display:flex; }
+.arena-menu .menu-title{ font:700 14px var(--font-title); margin-bottom:2px; }
+.arena-opt{
+  --bg:var(--slot); --hi:var(--cream-hi); --lo:var(--slot-lo);
+  display:flex;
+  align-items:center;
+  gap:10px;
+  font:16px var(--font-body);
+  text-transform:none;
+  padding:6px 10px 6px 6px;
+}
+.arena-opt .thumb{
+  width:72px; height:40px;
+  background:#0a0610 center / cover no-repeat;
+  image-rendering:pixelated;
+  box-shadow:0 0 0 2px var(--ink);
+}
+.arena-opt.active{ --bg:var(--blue); --hi:var(--blue-hi); --lo:var(--blue-lo); --fg:#fff; }
+.arena-menu .toggle-head{ --bg:var(--slot); --lo:var(--slot-lo); justify-content:space-between; }
+.arena-menu .toggle-group{ display:flex; flex-direction:column; gap:4px; padding-left:12px; }
+.arena-menu .toggle-group[hidden]{ display:none; }
+
+/* ---------- Toasty (textové okno jako ve hře) + shiny třpyt ---------- */
+.toasts{
+  position:fixed;
+  top:18px; left:50%;
+  transform:translateX(-50%);
+  z-index:90;
+  display:flex; flex-direction:column; align-items:center; gap:14px;
+  pointer-events:none;
+}
+.toast{
+  --bg:#fff; --hi:#fff; --lo:#fff;
+  display:flex; align-items:center; gap:8px;
+  font:18px var(--font-body);
+  padding:10px 16px;
+  box-shadow:
+    0 -4px 0 0 var(--ink), 0 4px 0 0 var(--ink), -4px 0 0 0 var(--ink), 4px 0 0 0 var(--ink),
+    inset 0 0 0 4px var(--blue-hi);
+  background:#fff;
+  color:var(--text);
+  filter:drop-shadow(4px 4px 0 rgba(0,0,0,.35));
+}
+.toast.shiny{
+  box-shadow:
+    0 -4px 0 0 var(--ink), 0 4px 0 0 var(--ink), -4px 0 0 0 var(--ink), 4px 0 0 0 var(--ink),
+    inset 0 0 0 4px var(--gold);
+}
+.sparkle{
+  position:absolute;
+  left:50%; top:45%;
+  margin:-7px 0 0 -7px;
+  pointer-events:none;
+  z-index:5;
+}
+
+/* ---------- Panel pro scale (klik na pokémona) ---------- */
+.scale-panel{
+  position:fixed;
+  z-index:60;
+  display:none;
+  min-width:230px;
+  padding:12px 14px 14px;
+  font-size:16px;
+  filter:drop-shadow(5px 5px 0 rgba(0,0,0,.35));
+}
+.scale-panel.open{ display:block; }
+.scale-panel .title{
+  display:flex; justify-content:space-between; align-items:center; gap:10px;
+  font:700 16px var(--font-title);
+}
+.scale-panel .title > span{ display:flex; align-items:center; gap:6px; }
+.scale-panel .row{ display:flex; align-items:center; gap:8px; margin-top:10px; }
+.scale-panel .anims{ flex-wrap:wrap; gap:4px; margin-top:4px; }
+.scale-panel .label{ margin-top:12px; font:12px var(--font-title); color:var(--muted); text-transform:uppercase; }
+#spriteInfo{ font:13px var(--font-body); text-transform:none; max-width:250px; line-height:1.3; }
+
+/* pixelový posuvník */
+input[type=range].px-range{
+  -webkit-appearance:none; appearance:none;
+  flex:1;
+  height:8px;
+  background:var(--slot-lo);
+  box-shadow:0 0 0 2px var(--ink);
+  margin:0 4px;
+}
+input[type=range].px-range::-webkit-slider-thumb{
+  -webkit-appearance:none;
+  width:12px; height:20px;
+  background:var(--red);
+  border:0;
+  box-shadow:0 0 0 2px var(--ink), inset 0 3px 0 0 var(--red-hi), inset 0 -3px 0 0 var(--red-lo);
+  cursor:pointer;
+}
+input[type=range].px-range::-moz-range-thumb{
+  width:12px; height:20px; border:0; border-radius:0;
+  background:var(--red);
+  box-shadow:0 0 0 2px var(--ink);
+}
+
+/* ---------- Deník ---------- */
+.journal{
+  position:fixed; inset:0;
+  z-index:80;
+  display:none;
+  align-items:center; justify-content:center;
+  background:rgba(10,10,25,.6);
+  color:var(--text);
+}
+.journal.open{ display:flex; }
+.journal-box{
+  position:relative;
+  width:min(1000px, calc(100vw - 40px));
+  height:min(86vh, 900px);
+  display:flex; flex-direction:column;
+  overflow:hidden;
+  filter:drop-shadow(8px 8px 0 rgba(0,0,0,.4));
+}
+.journal-head{
+  background:var(--red);
+  color:#fff;
+  padding:16px 18px 14px;
+  box-shadow:inset 0 4px 0 0 var(--red-hi), inset 0 -4px 0 0 var(--red-lo);
+  display:flex; align-items:center; gap:16px; flex-wrap:wrap;
+  border-bottom:4px solid var(--ink);
+}
+.journal-head h2{
+  margin:0;
+  font:700 24px var(--font-title);
+  text-shadow:3px 3px 0 var(--ink);
+  display:flex; align-items:center; gap:10px;
+}
+/* "kontrolka" jako na Pokédexu */
+.journal-head h2::before{
+  content:'';
+  width:18px; height:18px;
+  background:var(--blue-hi);
+  box-shadow:0 0 0 3px var(--ink), inset -4px -4px 0 0 var(--blue), inset 3px 3px 0 0 #d8ecff;
+}
+.journal-stats{ flex:1; min-width:220px; font-size:17px; }
+.journal-stats > div:first-child{ display:flex; align-items:center; gap:6px; flex-wrap:wrap; }
+.progress{
+  height:10px;
+  margin-top:8px;
+  max-width:340px;
+  background:#4a2028;
+  box-shadow:0 0 0 3px var(--ink);
+}
+.progress > div{
+  height:100%;
+  width:0;
+  background:var(--green);
+  box-shadow:inset 0 -3px 0 0 var(--green-lo);
+  transition:width .3s steps(8);
+}
+.journal.shiny-mode .progress > div{ background:var(--gold); box-shadow:inset 0 -3px 0 0 var(--gold-lo); }
+
+.journal-tools{
+  display:flex; gap:6px; flex-wrap:wrap; align-items:center;
+  padding:12px 16px;
+  background:var(--cream);
+  border-bottom:4px solid var(--ink);
+}
+.journal-tools .sep{ width:4px; height:26px; background:var(--cream-lo); margin:0 6px; }
+.px-input{
+  font:16px var(--font-body);
+  color:var(--text);
+  background:#fff;
+  border:0; border-radius:0; outline:0;
+  padding:6px 8px;
+  margin:3px 6px;
+  width:170px;
+  box-shadow:0 0 0 3px var(--ink), inset 0 3px 0 0 var(--cream-lo);
+}
+.px-input:focus{ box-shadow:0 0 0 3px var(--blue), inset 0 3px 0 0 var(--cream-lo); }
+.px-check{ display:flex; align-items:center; gap:8px; font-size:16px; cursor:pointer; margin-left:4px; }
+.px-check input{
+  -webkit-appearance:none; appearance:none;
+  width:16px; height:16px; margin:0;
+  background:#fff;
+  box-shadow:0 0 0 3px var(--ink);
+  cursor:pointer;
+}
+.px-check input:checked{ background:var(--blue); box-shadow:0 0 0 3px var(--ink), inset 0 0 0 3px #fff; }
+
+.dex-grid{
+  flex:1;
+  overflow-y:auto;
+  padding:16px 18px 18px;
+  display:grid;
+  grid-template-columns:repeat(auto-fill, minmax(100px, 1fr));
+  gap:14px;
+  align-content:start;
+  background:var(--cream);
+  scrollbar-color:var(--red) var(--cream-lo);
+}
+.dex-grid::-webkit-scrollbar{ width:16px; }
+.dex-grid::-webkit-scrollbar-track{ background:var(--cream-lo); box-shadow:inset 4px 0 0 0 var(--ink); }
+.dex-grid::-webkit-scrollbar-thumb{ background:var(--red); box-shadow:inset 0 0 0 3px var(--ink), inset 6px 0 0 0 var(--red-hi); }
+
+.dex-card{
+  --b:3px; --bg:var(--slot); --hi:var(--cream-hi); --lo:var(--slot-lo);
+  position:relative;
+  margin:3px;
+  padding:6px 4px 8px;
+  text-align:center;
+  cursor:pointer;
+  user-select:none;
+}
+.dex-card:hover{ --bg:#fff8e6; transform:translateY(-2px); }
+.dex-card .num{ position:absolute; top:6px; left:7px; font:11px var(--font-title); color:var(--muted); }
+.dex-card .star{ position:absolute; top:5px; right:6px; }
+.dex-card img{
+  display:block;
+  width:80px; height:80px;
+  margin:8px auto 2px;
+  image-rendering:pixelated;
+}
+.dex-card .name{ font-size:15px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; padding:0 2px; }
+.dex-card.locked{ --bg:var(--slot-lo); --hi:#ddd2b0; --lo:#b0a37c; cursor:default; }
+.dex-card.locked:hover{ transform:none; --bg:var(--slot-lo); }
+.dex-card.locked img{ filter:brightness(0); opacity:.75; }
+.dex-card.locked .q{
+  position:absolute; left:0; right:0; top:38px;
+  font:700 24px var(--font-title);
+  color:#fff;
+  text-shadow:2px 0 0 var(--ink), -2px 0 0 var(--ink), 0 2px 0 var(--ink), 0 -2px 0 var(--ink), 3px 3px 0 var(--ink);
+}
+.dex-card.locked .name{ color:var(--muted); }
+.dex-card.shiny-owned{ --bg:#fbe9a6; --hi:var(--gold-hi); --lo:var(--gold); }
+.dex-card.shiny-owned:hover{ --bg:#fff2c0; }
+.dex-card.shake{ animation:shake .3s steps(4); }
+@keyframes shake{ 25%{transform:translateX(-4px)} 75%{transform:translateX(4px)} }
+
+.journal-foot{
+  padding:10px 16px;
+  background:var(--cream);
+  border-top:4px solid var(--ink);
+  display:flex; gap:6px; align-items:center; flex-wrap:wrap;
+  font-size:15px;
+}
+.journal-foot .hint{ color:var(--muted); flex:1; min-width:200px; }
+
+.dex-detail{
+  position:absolute; inset:0;
+  display:none;
+  align-items:center; justify-content:center;
+  background:rgba(27,27,47,.65);
+}
+.dex-detail.open{ display:flex; }
+.detail-box{
+  width:min(390px, calc(100% - 40px));
+  padding:18px 18px 16px;
+  text-align:center;
+  position:relative;
+  filter:drop-shadow(6px 6px 0 rgba(0,0,0,.4));
+}
+.detail-box.shiny{ --hi:var(--gold-hi); --lo:var(--gold); }
+.detail-box .close{ position:absolute; top:8px; right:8px; }
+.detail-box .sub{ font:12px var(--font-title); color:var(--muted); }
+.detail-box h3{
+  margin:12px 0 0;
+  font:700 20px var(--font-title);
+  display:flex; align-items:center; justify-content:center; gap:8px;
+}
+.detail-stage{
+  height:180px;
+  display:flex; align-items:flex-end; justify-content:center;
+  margin:12px 0 10px;
+  background:
+    radial-gradient(ellipse 34% 11% at 50% 88%, #9fcf73 0 62%, #6f9e4c 63% 99%, transparent 100%),
+    linear-gradient(#bfe3f7, #e9f6ff);
+  box-shadow:0 0 0 3px var(--ink);
+}
+.detail-stage img{ height:150px; margin-bottom:8px; image-rendering:pixelated; }
+.detail-types{ display:flex; gap:8px; justify-content:center; min-height:22px; margin-bottom:10px; }
+.type{
+  font:12px var(--font-title);
+  text-transform:uppercase;
+  color:#fff;
+  padding:6px 8px 5px;
+  background:#888;
+  box-shadow:0 0 0 2px var(--ink), inset 0 -2px 0 0 rgba(0,0,0,.25);
+  text-shadow:1px 1px 0 rgba(0,0,0,.5);
+}
+.detail-info{ font-size:16px; line-height:1.5; margin-bottom:12px; }
+.detail-actions{ display:flex; gap:4px; justify-content:center; flex-wrap:wrap; }
+
+@media (max-width:1000px){
+  .mon.player{ width:215px; }
+  .mon.enemy { width:165px; }
+}
+@media (max-width:700px){
+  .mon.player{ width:175px; }
+  .mon.enemy { width:140px; }
+}
+</style>
+</head>
+<body>
+<div class="scene-shell" id="shell">
+  <div class="scene" id="scene">
+    <div class="world" id="world">
+
+      <div class="mon enemy" id="enemyBox">
+        <div class="anim">
+          <div class="shadow" id="shadowEnemy"><canvas class="shadow-px"></canvas></div>
+          <img class="pokemon" id="enemyMon" alt="enemy pokemon" draggable="false">
+        </div>
+      </div>
+      <div class="mon player" id="playerBox">
+        <div class="anim">
+          <div class="shadow" id="shadowPlayer"><canvas class="shadow-px"></canvas></div>
+          <img class="pokemon" id="playerMon" alt="player pokemon" draggable="false">
+        </div>
+      </div>
+    </div>
+
+    <div class="vignette"></div>
+  </div>
+</div>
+
+<div class="ui-bar">
+  <button class="pbtn red" id="journalBtn">Deník</button>
+  <button class="pbtn" id="arenaBtn">Aréna</button>
+  <button class="pbtn" id="sizeBtn">Velikost: výchozí</button>
+  <button class="pbtn" id="gradeBtn" title="Barevné sladění pokémonů s atmosférou arény">Barvy arény: zap</button>
+  <button class="pbtn" id="lightBtn" title="Experimentální: pixelové nasvícení pokémonů podle světla v aréně">Světlo (beta): vyp</button>
+  <button class="pbtn" id="bobBtn">Houpání: zap</button>
+  <button class="pbtn" id="parallaxBtn">Kamera: vyp</button>
+</div>
+
+<div class="arena-menu px-box" id="arenaMenu">
+  <div class="menu-title">VYBER ARÉNU</div>
+</div>
+
+<div class="fade" id="fade"></div>
+<div class="toasts" id="toasts"></div>
+
+<div class="journal" id="journal">
+  <div class="journal-box px-box">
+    <div class="journal-head">
+      <h2>POKÉDENÍK</h2>
+      <div class="journal-stats">
+        <div id="dexStats"></div>
+        <div class="progress"><div id="dexProgress"></div></div>
+      </div>
+      <button class="pbtn" id="journalClose" title="Zavřít (Esc)">X</button>
+    </div>
+    <div class="journal-tools">
+      <button class="pbtn active" data-mode="normal">Normální</button>
+      <button class="pbtn shiny" data-mode="shiny"><i class="pstar"></i>Shiny</button>
+      <span class="sep"></span>
+      <button class="pbtn active" data-gen="0">Vše</button>
+      <button class="pbtn" data-gen="1">I</button>
+      <button class="pbtn" data-gen="2">II</button>
+      <button class="pbtn" data-gen="3">III</button>
+      <button class="pbtn" data-gen="4">IV</button>
+      <button class="pbtn" data-gen="5">V</button>
+      <span class="sep"></span>
+      <input type="search" class="px-input" id="dexSearch" placeholder="Jméno / číslo">
+      <label class="px-check"><input type="checkbox" id="dexOnlyOwned"> jen odemčené</label>
+    </div>
+    <div class="dex-grid" id="dexGrid"></div>
+    <div class="journal-foot">
+      <span class="hint">Soupeř se zapíše, když ho porazíš (Faint). Šance na shiny: <span id="shinyChance"></span></span>
+      <button class="pbtn small" id="dexDebugUnlock" title="Pro testování">Test: odemknout</button>
+      <button class="pbtn small red" id="dexReset">Smazat deník</button>
+    </div>
+
+    <div class="dex-detail" id="dexDetail">
+      <div class="detail-box px-box" id="detailBox">
+        <button class="pbtn small close" id="detailClose">X</button>
+        <div class="sub" id="detailNum"></div>
+        <h3 id="detailName"></h3>
+        <div class="detail-stage"><img id="detailImg" alt=""></div>
+        <div class="detail-types" id="detailTypes"></div>
+        <div class="detail-info" id="detailInfo"></div>
+        <div class="detail-actions">
+          <button class="pbtn small" id="detailNormal">Normální</button>
+          <button class="pbtn small shiny" id="detailShiny"><i class="pstar"></i>Shiny</button>
+          <button class="pbtn small red" id="detailSend">Do boje!</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="scale-panel px-box" id="scalePanel">
+  <div class="title">
+    <span id="panelName">Pokémon</span>
+    <button class="pbtn small" id="panelClose" title="Zavřít">X</button>
+  </div>
+  <div class="label">Velikost</div>
+  <div class="row">
+    <input type="range" class="px-range" id="scaleRange" min="0.3" max="3" step="0.05" value="1">
+    <span id="scaleValue">1.00×</span>
+  </div>
+  <div class="row anims">
+    <button class="pbtn small" id="scaleReset">Reset velikosti</button>
+    <button class="pbtn small" id="posReset">Reset pozice</button>
+  </div>
+  <div class="label">Animace</div>
+  <div class="row anims">
+    <button class="pbtn small" data-anim="attack">Útok</button>
+    <button class="pbtn small" data-anim="action">GIF akce</button>
+    <button class="pbtn small" data-anim="hurt">Zásah</button>
+    <button class="pbtn small" data-anim="faint">Faint</button>
+    <button class="pbtn small" data-anim="revive">Oživit</button>
+  </div>
+  <div class="label" id="spriteInfo"></div>
+</div>
+
+<script src="pixel_arenas.js"></script>
+<script>
+const world = document.getElementById('world');
+const sp = document.getElementById('shadowPlayer');
+const se = document.getElementById('shadowEnemy');
+const shell = document.getElementById('shell');
+
+/* ---------- Pokémoni: jména, sprity, kdo je v boji ---------- */
+// Animované Black/White sprity (normal/shiny, zepředu/zezadu) existují pro #1–649 (gen 1–5)
+const DEX_MAX = 649;
+const NAMES = 'Bulbasaur|Ivysaur|Venusaur|Charmander|Charmeleon|Charizard|Squirtle|Wartortle|Blastoise|Caterpie|Metapod|Butterfree|Weedle|Kakuna|Beedrill|Pidgey|Pidgeotto|Pidgeot|Rattata|Raticate|Spearow|Fearow|Ekans|Arbok|Pikachu|Raichu|Sandshrew|Sandslash|Nidoran♀|Nidorina|Nidoqueen|Nidoran♂|Nidorino|Nidoking|Clefairy|Clefable|Vulpix|Ninetales|Jigglypuff|Wigglytuff|Zubat|Golbat|Oddish|Gloom|Vileplume|Paras|Parasect|Venonat|Venomoth|Diglett|Dugtrio|Meowth|Persian|Psyduck|Golduck|Mankey|Primeape|Growlithe|Arcanine|Poliwag|Poliwhirl|Poliwrath|Abra|Kadabra|Alakazam|Machop|Machoke|Machamp|Bellsprout|Weepinbell|Victreebel|Tentacool|Tentacruel|Geodude|Graveler|Golem|Ponyta|Rapidash|Slowpoke|Slowbro|Magnemite|Magneton|Farfetch’d|Doduo|Dodrio|Seel|Dewgong|Grimer|Muk|Shellder|Cloyster|Gastly|Haunter|Gengar|Onix|Drowzee|Hypno|Krabby|Kingler|Voltorb|Electrode|Exeggcute|Exeggutor|Cubone|Marowak|Hitmonlee|Hitmonchan|Lickitung|Koffing|Weezing|Rhyhorn|Rhydon|Chansey|Tangela|Kangaskhan|Horsea|Seadra|Goldeen|Seaking|Staryu|Starmie|Mr. Mime|Scyther|Jynx|Electabuzz|Magmar|Pinsir|Tauros|Magikarp|Gyarados|Lapras|Ditto|Eevee|Vaporeon|Jolteon|Flareon|Porygon|Omanyte|Omastar|Kabuto|Kabutops|Aerodactyl|Snorlax|Articuno|Zapdos|Moltres|Dratini|Dragonair|Dragonite|Mewtwo|Mew|Chikorita|Bayleef|Meganium|Cyndaquil|Quilava|Typhlosion|Totodile|Croconaw|Feraligatr|Sentret|Furret|Hoothoot|Noctowl|Ledyba|Ledian|Spinarak|Ariados|Crobat|Chinchou|Lanturn|Pichu|Cleffa|Igglybuff|Togepi|Togetic|Natu|Xatu|Mareep|Flaaffy|Ampharos|Bellossom|Marill|Azumarill|Sudowoodo|Politoed|Hoppip|Skiploom|Jumpluff|Aipom|Sunkern|Sunflora|Yanma|Wooper|Quagsire|Espeon|Umbreon|Murkrow|Slowking|Misdreavus|Unown|Wobbuffet|Girafarig|Pineco|Forretress|Dunsparce|Gligar|Steelix|Snubbull|Granbull|Qwilfish|Scizor|Shuckle|Heracross|Sneasel|Teddiursa|Ursaring|Slugma|Magcargo|Swinub|Piloswine|Corsola|Remoraid|Octillery|Delibird|Mantine|Skarmory|Houndour|Houndoom|Kingdra|Phanpy|Donphan|Porygon2|Stantler|Smeargle|Tyrogue|Hitmontop|Smoochum|Elekid|Magby|Miltank|Blissey|Raikou|Entei|Suicune|Larvitar|Pupitar|Tyranitar|Lugia|Ho-Oh|Celebi|Treecko|Grovyle|Sceptile|Torchic|Combusken|Blaziken|Mudkip|Marshtomp|Swampert|Poochyena|Mightyena|Zigzagoon|Linoone|Wurmple|Silcoon|Beautifly|Cascoon|Dustox|Lotad|Lombre|Ludicolo|Seedot|Nuzleaf|Shiftry|Taillow|Swellow|Wingull|Pelipper|Ralts|Kirlia|Gardevoir|Surskit|Masquerain|Shroomish|Breloom|Slakoth|Vigoroth|Slaking|Nincada|Ninjask|Shedinja|Whismur|Loudred|Exploud|Makuhita|Hariyama|Azurill|Nosepass|Skitty|Delcatty|Sableye|Mawile|Aron|Lairon|Aggron|Meditite|Medicham|Electrike|Manectric|Plusle|Minun|Volbeat|Illumise|Roselia|Gulpin|Swalot|Carvanha|Sharpedo|Wailmer|Wailord|Numel|Camerupt|Torkoal|Spoink|Grumpig|Spinda|Trapinch|Vibrava|Flygon|Cacnea|Cacturne|Swablu|Altaria|Zangoose|Seviper|Lunatone|Solrock|Barboach|Whiscash|Corphish|Crawdaunt|Baltoy|Claydol|Lileep|Cradily|Anorith|Armaldo|Feebas|Milotic|Castform|Kecleon|Shuppet|Banette|Duskull|Dusclops|Tropius|Chimecho|Absol|Wynaut|Snorunt|Glalie|Spheal|Sealeo|Walrein|Clamperl|Huntail|Gorebyss|Relicanth|Luvdisc|Bagon|Shelgon|Salamence|Beldum|Metang|Metagross|Regirock|Regice|Registeel|Latias|Latios|Kyogre|Groudon|Rayquaza|Jirachi|Deoxys|Turtwig|Grotle|Torterra|Chimchar|Monferno|Infernape|Piplup|Prinplup|Empoleon|Starly|Staravia|Staraptor|Bidoof|Bibarel|Kricketot|Kricketune|Shinx|Luxio|Luxray|Budew|Roserade|Cranidos|Rampardos|Shieldon|Bastiodon|Burmy|Wormadam|Mothim|Combee|Vespiquen|Pachirisu|Buizel|Floatzel|Cherubi|Cherrim|Shellos|Gastrodon|Ambipom|Drifloon|Drifblim|Buneary|Lopunny|Mismagius|Honchkrow|Glameow|Purugly|Chingling|Stunky|Skuntank|Bronzor|Bronzong|Bonsly|Mime Jr.|Happiny|Chatot|Spiritomb|Gible|Gabite|Garchomp|Munchlax|Riolu|Lucario|Hippopotas|Hippowdon|Skorupi|Drapion|Croagunk|Toxicroak|Carnivine|Finneon|Lumineon|Mantyke|Snover|Abomasnow|Weavile|Magnezone|Lickilicky|Rhyperior|Tangrowth|Electivire|Magmortar|Togekiss|Yanmega|Leafeon|Glaceon|Gliscor|Mamoswine|Porygon-Z|Gallade|Probopass|Dusknoir|Froslass|Rotom|Uxie|Mesprit|Azelf|Dialga|Palkia|Heatran|Regigigas|Giratina|Cresselia|Phione|Manaphy|Darkrai|Shaymin|Arceus|Victini|Snivy|Servine|Serperior|Tepig|Pignite|Emboar|Oshawott|Dewott|Samurott|Patrat|Watchog|Lillipup|Herdier|Stoutland|Purrloin|Liepard|Pansage|Simisage|Pansear|Simisear|Panpour|Simipour|Munna|Musharna|Pidove|Tranquill|Unfezant|Blitzle|Zebstrika|Roggenrola|Boldore|Gigalith|Woobat|Swoobat|Drilbur|Excadrill|Audino|Timburr|Gurdurr|Conkeldurr|Tympole|Palpitoad|Seismitoad|Throh|Sawk|Sewaddle|Swadloon|Leavanny|Venipede|Whirlipede|Scolipede|Cottonee|Whimsicott|Petilil|Lilligant|Basculin|Sandile|Krokorok|Krookodile|Darumaka|Darmanitan|Maractus|Dwebble|Crustle|Scraggy|Scrafty|Sigilyph|Yamask|Cofagrigus|Tirtouga|Carracosta|Archen|Archeops|Trubbish|Garbodor|Zorua|Zoroark|Minccino|Cinccino|Gothita|Gothorita|Gothitelle|Solosis|Duosion|Reuniclus|Ducklett|Swanna|Vanillite|Vanillish|Vanilluxe|Deerling|Sawsbuck|Emolga|Karrablast|Escavalier|Foongus|Amoonguss|Frillish|Jellicent|Alomomola|Joltik|Galvantula|Ferroseed|Ferrothorn|Klink|Klang|Klinklang|Tynamo|Eelektrik|Eelektross|Elgyem|Beheeyem|Litwick|Lampent|Chandelure|Axew|Fraxure|Haxorus|Cubchoo|Beartic|Cryogonal|Shelmet|Accelgor|Stunfisk|Mienfoo|Mienshao|Druddigon|Golett|Golurk|Pawniard|Bisharp|Bouffalant|Rufflet|Braviary|Vullaby|Mandibuzz|Heatmor|Durant|Deino|Zweilous|Hydreigon|Larvesta|Volcarona|Cobalion|Terrakion|Virizion|Tornadus|Thundurus|Reshiram|Zekrom|Landorus|Kyurem|Keldeo|Meloetta|Genesect'.split('|');
+// oficiální výšky z PokeAPI v decimetrech (index = číslo pokémona − 1)
+const HEIGHTS = [7,10,20,6,11,17,5,10,16,3,7,11,3,6,10,3,11,15,3,7,3,12,20,35,4,8,6,10,4,8,13,5,9,14,6,13,6,11,5,10,8,16,5,8,12,3,10,10,15,2,7,4,10,8,17,5,10,7,19,6,10,13,9,13,15,8,15,16,7,10,17,9,16,4,10,14,10,17,12,16,3,10,8,14,18,11,17,9,12,3,15,13,16,15,88,10,16,4,13,5,12,4,20,4,10,15,14,12,6,12,10,19,11,10,22,4,12,6,13,8,11,13,15,14,11,13,15,14,9,65,25,3,3,10,8,9,8,4,10,5,13,18,21,17,16,20,18,40,22,20,4,9,12,18,5,9,17,6,11,23,8,18,7,16,10,14,5,11,18,5,12,3,3,3,3,6,2,15,6,8,14,4,4,8,12,11,4,6,8,8,3,8,12,4,14,9,10,5,20,7,5,13,15,6,12,15,11,92,6,14,5,18,6,15,9,6,18,7,8,4,11,6,6,9,9,21,17,6,14,18,5,11,6,14,12,7,14,4,6,7,12,15,19,21,20,6,12,20,52,38,6,5,9,17,4,9,19,4,7,15,5,10,4,5,3,6,10,7,12,5,12,15,5,10,13,3,7,6,12,4,8,16,5,8,4,12,8,14,20,5,8,8,6,10,15,10,23,2,10,6,11,5,6,4,9,21,6,13,6,15,4,4,7,6,3,4,17,8,18,20,145,7,19,5,7,9,11,7,11,20,4,13,4,11,13,27,10,12,4,9,6,11,5,15,10,15,7,15,6,62,3,10,6,11,8,16,20,6,12,6,7,15,8,11,14,4,17,18,10,6,6,11,15,6,12,16,17,18,19,14,20,45,35,70,3,17,4,11,22,5,9,12,4,8,17,3,6,12,5,10,3,10,5,9,14,2,9,9,16,5,13,2,5,9,3,12,4,7,11,4,5,3,9,12,4,12,4,12,9,9,5,10,2,4,10,5,13,5,6,6,5,10,7,14,19,6,7,12,8,20,8,13,7,13,14,4,12,10,10,22,11,12,17,24,20,18,16,15,19,10,8,20,25,9,16,14,22,13,3,3,3,3,54,42,17,37,45,15,4,3,15,2,32,4,6,8,33,5,10,16,5,8,15,5,11,4,9,12,4,11,6,11,6,10,6,10,6,11,3,6,12,8,16,4,9,17,4,9,3,7,11,6,12,14,5,8,15,13,14,3,5,12,4,12,25,3,7,5,11,10,7,10,15,6,13,10,3,14,6,11,14,5,17,7,12,5,14,6,19,7,16,4,5,4,7,15,3,6,10,5,13,4,11,13,6,19,4,5,10,2,6,12,22,12,1,8,6,10,3,6,6,2,12,21,5,10,3,6,10,6,10,18,5,26,11,4,8,7,9,14,16,10,28,5,16,16,5,15,5,12,14,3,8,14,18,11,16,21,19,20,15,15,32,29,15,30,14,6,15];
+const GENS = [[1,151,'Kanto'],[152,251,'Johto'],[252,386,'Hoenn'],[387,493,'Sinnoh'],[494,649,'Unova']];
+const SHINY_CHANCE = 1 / 128;   // šance, že nový soupeř bude shiny
+const SPRITE_BASE = 'https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/versions/generation-v/black-white/';
+
+function spriteUrl(id, { back = false, shiny = false, animated = true } = {}){
+  return SPRITE_BASE + (animated ? 'animated/' : '') + (back ? 'back/' : '') + (shiny ? 'shiny/' : '')
+    + id + (animated ? '.gif' : '.png');
+}
+const pad3 = n => String(n).padStart(3, '0');
+const STAR = '<i class="pstar"></i>';
+const genOf = id => GENS.findIndex(([a, b]) => id >= a && id <= b) + 1;
+
+const BATTLE_KEY = 'pokeIdle.battle';
+let battle;
+try { battle = JSON.parse(localStorage.getItem(BATTLE_KEY)); } catch {}
+if (!battle?.player || !battle?.enemy) battle = { player: { id: 1, shiny: false }, enemy: { id: 58, shiny: false } };
+function saveBattle(){ try { localStorage.setItem(BATTLE_KEY, JSON.stringify(battle)); } catch {} }
+
+// zapíše do boxu, který pokémon v něm je
+function applyMonData(box, { id, shiny }){
+  box.dataset.id = id;
+  box.dataset.shiny = shiny ? '1' : '';
+  box.dataset.name = NAMES[id - 1];
+  box.dataset.sprite = spriteUrl(id, { back: box.id === 'playerBox', shiny });
+}
+applyMonData(document.getElementById('playerBox'), battle.player);
+applyMonData(document.getElementById('enemyBox'), battle.enemy);
+
+// sprite se nejdřív ukáže jako obyčejný GIF; jakmile se rozloží na snímky,
+// nahradí ho canvas, který umí přehrávat idle a akci zvlášť (viz "GIF sprity" níže)
+document.querySelectorAll('.mon').forEach(box => {
+  const img = box.querySelector('.pokemon');
+  img.addEventListener('load', () => { applyMon(box); drawFallbackShadow(box, img.naturalWidth, img.naturalHeight); });
+  img.src = box.dataset.sprite;
+});
+
+let targetX = 0, targetY = 0;
+let camX = 0, camY = 0;
+let enabled = false; // pohyb kamery za myší – defaultně vypnutý
+let t = 0;
+
+/* ---------- Předvolby velikosti pokémonů ----------
+   výchozí – jak to bylo: obrázkové arény pevná šířka, pixelové arény velikost spritu
+   lore    – velikost podle oficiální výšky (logaritmicky stlačená, jinak by byl Wailord 145× Joltik)
+   mix     – průměr mezi velikostí spritu z BW a lore, zaokrouhleno na kroky po 0,5×
+   Ve všech předvolbách mimo "výchozí" se velikost počítá v pixelech arény (1 pixel arény = PX_W-tina šířky). */
+const SIZE_PRESETS = [
+  { key: 'default', label: 'výchozí' },
+  { key: 'lore',    label: 'lore' },
+  { key: 'mix',     label: 'mix' },
+];
+const SIZE_KEY = 'pokeIdle.size';
+const LORE_REF_PX = 48;        // pokémon vysoký 1 m = 48 pixelů arény
+const LORE_EXP = 0.45;         // "stlačení" rozdílů (1 = přesně podle lore)
+const PLAYER_PERSPECTIVE = 1.6; // hráč je blíž kameře
+let sizePreset = 'default';
+try { const v = localStorage.getItem(SIZE_KEY); if (SIZE_PRESETS.some(p => p.key === v)) sizePreset = v; } catch {}
+const sizeBtn = document.getElementById('sizeBtn');
+const snapTo = (v, step) => Math.max(step, Math.round(v / step) * step);
+
+// násobek velikosti spritu (v pixelech arény) podle předvolby
+function spriteScaleFor(box, natH){
+  const back = box.id === 'playerBox';
+  const native = back ? 2 : 1;               // BW: sprity zezadu jsou 2×
+  if (sizePreset === 'default') return native;
+  const m = (HEIGHTS[box.dataset.id - 1] || 7) / 10;
+  const target = Math.min(150, Math.max(14, LORE_REF_PX * m ** LORE_EXP)) * (back ? PLAYER_PERSPECTIVE : 1);
+  const lore = target / natH;
+  return sizePreset === 'lore' ? snapTo(lore, 0.25) : snapTo(Math.sqrt(native * lore), 0.5);
+}
+function updateSizeBtn(){
+  sizeBtn.textContent = 'Velikost: ' + SIZE_PRESETS.find(p => p.key === sizePreset).label;
+}
+sizeBtn.addEventListener('click', () => {
+  const i = SIZE_PRESETS.findIndex(p => p.key === sizePreset);
+  sizePreset = SIZE_PRESETS[(i + 1) % SIZE_PRESETS.length].key;
+  try { localStorage.setItem(SIZE_KEY, sizePreset); } catch {}
+  updateSizeBtn();
+  mons.forEach(applyMon);
+  if (selected) spriteInfo.textContent = spriteInfoText(selected);
+});
+updateSizeBtn();
+
+/* ---------- Přepínač houpání při idle ---------- */
+const BOB_KEY = 'pokeIdle.bob';
+let bobEnabled = true;
+try { bobEnabled = localStorage.getItem(BOB_KEY) !== '0'; } catch {}
+const bobBtn = document.getElementById('bobBtn');
+function updateBobBtn(){ bobBtn.textContent = 'Houpání: ' + (bobEnabled ? 'zap' : 'vyp'); }
+bobBtn.addEventListener('click', () => {
+  bobEnabled = !bobEnabled;
+  try { localStorage.setItem(BOB_KEY, bobEnabled ? '1' : '0'); } catch {}
+  updateBobBtn();
+});
+updateBobBtn();
+
+/* ---------- Přepínač pohybu kamery ---------- */
+const parallaxBtn = document.getElementById('parallaxBtn');
+function updateParallaxBtn(){
+  parallaxBtn.textContent = 'Kamera: ' + (enabled ? 'zap' : 'vyp');
+}
+parallaxBtn.addEventListener('click', () => {
+  enabled = !enabled;
+  if (!enabled){ targetX = 0; targetY = 0; }
+  updateParallaxBtn();
+});
+
+function setTargetFromMouse(e){
+  if (!enabled || drag) return;
+  const rect = shell.getBoundingClientRect();
+  const x = ((e.clientX - rect.left) / rect.width - 0.5) * 2;
+  const y = ((e.clientY - rect.top) / rect.height - 0.5) * 2;
+  targetX = x;
+  targetY = y;
+}
+shell.addEventListener('mousemove', setTargetFromMouse);
+shell.addEventListener('mouseleave', () => { targetX = 0; targetY = 0; });
+shell.addEventListener('touchmove', (e) => {
+  if (!e.touches[0]) return;
+  setTargetFromMouse(e.touches[0]);
+}, {passive:true});
+shell.addEventListener('touchend', () => { targetX = 0; targetY = 0; });
+
+/* ---------- Arény ----------
+   Všechny arény jsou kreslené kódem (pixel_arenas.js). "spots" = místa na plátně
+   (0–1), kde pokémoni defaultně stojí – na plošinkách. */
+const ARENAS = {
+  volcano: { pixel: PIXEL_ARENA_DEFS.volcano },
+  storm:   { pixel: PIXEL_ARENA_DEFS.storm },
+  mountain: { pixel: PIXEL_ARENA_DEFS.mountain },
+  ocean:    { pixel: PIXEL_ARENA_DEFS.ocean },
+  desert:   { pixel: PIXEL_ARENA_DEFS.desert },
+  grave:    { pixel: PIXEL_ARENA_DEFS.grave },
+  jungle:   { pixel: PIXEL_ARENA_DEFS.jungle },
+  nether:   { pixel: PIXEL_ARENA_DEFS.nether },
+  aether:   { pixel: PIXEL_ARENA_DEFS.aether },
+  fel:      { pixel: PIXEL_ARENA_DEFS.fel },
+};
+for (const a of Object.values(ARENAS)) if (a.pixel){
+  a.name = a.pixel.name;
+  a.image = { w: PX_W, h: PX_H };
+  a.spots = a.pixel.spots;
+}
+const ARENA_KEY = 'pokeIdle.arena';
+const scene = document.getElementById('scene');
+const arenaBgs = [...document.querySelectorAll('.arena-bg')];
+
+// volby arén uložené v prohlížeči (musí být načtené dřív, než se arény poprvé nakreslí)
+// přepínače efektů arén, rozdělené do skupin v menu ARÉNA
+const ARENA_TOGGLES = [
+  { group: 'Sopečná', items: [
+    { key: 'volcanoMovingClouds', label: 'Mraky', on: 'pohyb', off: 'statické', rebuild: 'volcano' },
+    { key: 'volcanoEruptions', label: 'Erupce' },
+    { key: 'volcanoFlyers', label: 'Letci na obloze' },
+  ] },
+  { group: 'Bouřková', items: [
+    { key: 'stormImpact', label: 'Úder do tesáku' },
+    { key: 'stormSheet', label: 'Blýskání v mracích' },
+    { key: 'stormSplash', label: 'Cákance deště' },
+    { key: 'stormWindBirds', label: 'Ptáci ve větru' },
+    { key: 'stormDebris', label: 'Listí a větvičky' },
+  ] },
+  { group: 'Horská', items: [
+    { key: 'snowBlizzard', label: 'Vánice' },
+    { key: 'snowPlume', label: 'Sněhový chochol' },
+    { key: 'snowDrift', label: 'Zvířený sníh' },
+    { key: 'snowSparkle', label: 'Třpyt sněhu' },
+  ] },
+  { group: 'Oceánská', items: [
+    { key: 'oceanGulls', label: 'Racci' },
+    { key: 'oceanWhale', label: 'Velryba v dálce' },
+    { key: 'oceanGlitter', label: 'Třpyt slunce' },
+    { key: 'oceanSpray', label: 'Tříštění vln' },
+    { key: 'oceanFish', label: 'Vyskakující ryby' },
+  ] },
+  { group: 'Pouštní', items: [
+    { key: 'desertStorm', label: 'Písečná bouře' },
+    { key: 'desertStreams', label: 'Zvířený písek' },
+    { key: 'desertTumble', label: 'Válející se keř' },
+    { key: 'desertDevil', label: 'Prachový vír' },
+  ] },
+  { group: 'Hřbitovní', items: [
+    { key: 'graveFog', label: 'Mlha' },
+    { key: 'graveWisps', label: 'Bludičky' },
+    { key: 'graveBats', label: 'Netopýři' },
+    { key: 'graveGhost', label: 'Duch' },
+  ] },
+  { group: 'Džungle', items: [
+    { key: 'jungleRays', label: 'Sluneční paprsky' },
+    { key: 'jungleWaterfall', label: 'Pramen ze skály' },
+    { key: 'jungleVines', label: 'Houpající se liány a listy' },
+    { key: 'jungleSpiders', label: 'Pavouci' },
+    { key: 'jungleShrooms', label: 'Svítící houby' },
+    { key: 'jungleBugs', label: 'Světlušky' },
+    { key: 'jungleMist', label: 'Mlha' },
+  ] },
+  { group: 'Netherová', items: [
+    { key: 'netherRift', label: 'Rotující trhlina' },
+    { key: 'netherIslands', label: 'Pohupující se ostrovy' },
+    { key: 'netherBeam', label: 'Paprsek věže' },
+    { key: 'netherLightning', label: 'Netherové blesky' },
+    { key: 'netherDebris', label: 'Létající úlomky' },
+  ] },
+  { group: 'Nebeská', items: [
+    { key: 'aetherClouds', label: 'Plující mraky' },
+    { key: 'aetherRays', label: 'Sluneční paprsky' },
+    { key: 'aetherHalo', label: 'Zlatá svatozář' },
+    { key: 'aetherWaterfall', label: 'Vodopád' },
+    { key: 'aetherBirds', label: 'Holubice' },
+    { key: 'aetherFeathers', label: 'Peříčka a třpyt' },
+  ] },
+  { group: 'Zpustošená', items: [
+    { key: 'felPortal', label: 'Vír v portálu' },
+    { key: 'felZeppelin', label: 'Vzducholoď' },
+    { key: 'felMeteors', label: 'Padající meteory' },
+    { key: 'felFire', label: 'Fel oheň' },
+    { key: 'felCracks', label: 'Pulzující pukliny' },
+    { key: 'felEmbers', label: 'Jiskry a popel' },
+  ] },
+];
+try {
+  for (const g of ARENA_TOGGLES) for (const it of g.items){
+    const v = localStorage.getItem('pokeIdle.opt.' + it.key);
+    if (v !== null) PX_OPTIONS[it.key] = v === '1';
+  }
+} catch {}
+
+// plátna pro pixelové arény (statické vrstvy se nakreslí hned, dynamické v animační smyčce)
+for (const [key, a] of Object.entries(ARENAS)){
+  if (!a.pixel) continue;
+  const canvas = document.createElement('canvas');
+  canvas.className = 'arena-bg pixel-arena';
+  canvas.dataset.depth = '10';
+  canvas.dataset.arenaEl = key;
+  scene.insertBefore(canvas, world);
+  arenaBgs.push(canvas);
+  a.render = pxSetupArena(canvas, a.pixel);
+  a.render(0);
+  a.thumb = canvas.toDataURL();
+}
+// velikost jednoho pixelu arény na obrazovce (plátno je roztažené přes object-fit: cover)
+function arenaPixelSize(){
+  return Math.max(world.clientWidth / PX_W, world.clientHeight / PX_H);
+}
+let arena = 'volcano';
+try { const a = localStorage.getItem(ARENA_KEY); if (ARENAS[a]) arena = a; } catch {}
+
+// převod místa v obrázku na % ve "world" (obrázek je roztažený přes background-size: cover)
+function arenaSpot(box){
+  const def = ARENAS[arena], spot = def.spots?.[box.id];
+  if (!spot) return null;
+  const W = world.clientWidth, H = world.clientHeight;
+  const k = Math.max(W / def.image.w, H / def.image.h);
+  const dw = def.image.w * k, dh = def.image.h * k;
+  const x = (W - dw) / 2 + spot[0] * dw;
+  const y = (H - dh) / 2 + spot[1] * dh;
+  return { left: x / W * 100, bottom: (H - y) / H * 100 };
+}
+
+function showArena(key){
+  arena = key;
+  shadingVersion++;
+  scene.dataset.arena = key;
+  scene.dataset.pixel = ARENAS[key].pixel ? '1' : '';
+  mons.forEach(b => { b.querySelector('.anim').style.filter = ''; });
+  document.querySelectorAll('[data-arena-el]').forEach(el => { el.hidden = el.dataset.arenaEl !== key; });
+  useArenaLayout(key);
+  mons.forEach(applyMon);
+  try { localStorage.setItem(ARENA_KEY, key); } catch {}
+}
+
+/* ---------- Drag & drop + scale ---------- */
+const STORAGE_KEY = 'pokeIdle.monLayout';
+const mons = [...document.querySelectorAll('.mon')];
+let layoutAll = {};           // { volcano: { playerBox: {left, bottom, scale}, ... }, storm: {...} }
+let layout = {};              // rozložení aktuální arény
+
+function loadLayout(){
+  try { layoutAll = JSON.parse(localStorage.getItem(STORAGE_KEY)) || {}; }
+  catch { layoutAll = {}; }
+}
+function useArenaLayout(key){ layout = layoutAll[key] ||= {}; }
+function saveLayout(){
+  try { localStorage.setItem(STORAGE_KEY, JSON.stringify(layoutAll)); } catch {}
+}
+function applyMon(box){
+  const l = layout[box.id] || {};
+  const spot = (l.left == null || l.bottom == null) ? arenaSpot(box) : null;
+  const left = l.left ?? spot?.left, bottom = l.bottom ?? spot?.bottom;
+  box.style.left   = left   != null ? left + '%'   : '';
+  box.style.bottom = bottom != null ? bottom + '%' : '';
+  box.style.setProperty('--scale', l.scale ?? 1);
+
+  const el = box.querySelector('.pokemon');
+  const nat = el.tagName === 'CANVAS' ? el.width : el.naturalWidth;
+  const natH = el.tagName === 'CANVAS' ? el.height : el.naturalHeight;
+  const pxArena = !!ARENAS[arena].pixel;
+  if (!nat || (sizePreset === 'default' && !pxArena)){ box.style.width = ''; return; }
+  const unit = pxArena ? arenaPixelSize() : world.clientWidth / PX_W;
+  box.style.width = nat * spriteScaleFor(box, natH) * unit + 'px';
+}
+
+loadLayout();
+showArena(arena);
+window.addEventListener('resize', () => mons.forEach(applyMon));
+
+let drag = null;              // aktuální tah
+const DRAG_THRESHOLD = 5;     // px – menší pohyb = klik
+
+mons.forEach(box => {
+  box.addEventListener('pointerdown', (e) => {
+    if (e.button !== 0) return;
+    e.preventDefault();
+    box.setPointerCapture(e.pointerId);
+    const w = world.clientWidth, h = world.clientHeight;
+    const cs = getComputedStyle(box);
+    drag = {
+      box,
+      startX: e.clientX,
+      startY: e.clientY,
+      startLeft: parseFloat(cs.left) / w * 100,
+      startBottom: parseFloat(cs.bottom) / h * 100,
+      moved: false,
+    };
+  });
+
+  box.addEventListener('pointermove', (e) => {
+    if (!drag || drag.box !== box) return;
+    const dx = e.clientX - drag.startX;
+    const dy = e.clientY - drag.startY;
+    if (!drag.moved && Math.hypot(dx, dy) < DRAG_THRESHOLD) return;
+    if (!drag.moved){
+      drag.moved = true;
+      box.classList.add('dragging');
+      closePanel();
+    }
+    const w = world.clientWidth, h = world.clientHeight;
+    const left = Math.min(100, Math.max(0, drag.startLeft + dx / w * 100));
+    const bottom = Math.min(100, Math.max(0, drag.startBottom - dy / h * 100));
+    layout[box.id] = { ...layout[box.id], left, bottom };
+    applyMon(box);
+  });
+
+  const endDrag = () => {
+    if (!drag || drag.box !== box) return;
+    box.classList.remove('dragging');
+    if (drag.moved) saveLayout();
+    else openPanel(box);
+    drag = null;
+  };
+  box.addEventListener('pointerup', endDrag);
+  box.addEventListener('pointercancel', endDrag);
+});
+
+/* ---------- GIF sprity: rozdělení na idle a akci ----------
+   Animované sprity z PokeAPI (Black/White) mají v jednom GIFu:
+     [ idle smyčka ][ idle smyčka ]...[ akce – vzepnutí, štěknutí… ]
+   GIF tu rozložíme na snímky, najdeme hranici a přehráváme části zvlášť. */
+const GIFUCT_URL = 'https://cdn.jsdelivr.net/npm/gifuct-js@2.1.2/+esm';
+const ACTION_SPEED = 1.4;          // akce při útoku hraje o něco rychleji
+const spritePlayers = new Map();   // box -> přehrávač
+
+// kolik pixelů se mezi dvěma snímky liší (drobné barevné odchylky ignoruje)
+function frameDiff(a, b){
+  let n = 0;
+  for (let i = 0; i < a.length; i += 4){
+    const aa = a[i+3] > 127, ba = b[i+3] > 127;
+    if (aa !== ba) n++;
+    else if (aa && Math.abs(a[i]-b[i]) + Math.abs(a[i+1]-b[i+1]) + Math.abs(a[i+2]-b[i+2]) > 60) n++;
+  }
+  return n;
+}
+
+function splitIdleAction(data){
+  const n = data.length;
+  const px = data[0].length / 4;
+  const same = (i, j) => frameDiff(data[i], data[j]) <= Math.max(2, px * 0.002);
+
+  // 1) idle = smyčka, která se na začátku přesně opakuje; akce = co zbude za ní
+  for (let start = 0; start <= 2; start++){
+    for (let P = 2; start + 2 * P <= n; P++){
+      let ok = true;
+      for (let i = start; i < start + P; i++) if (!same(i, i + P)) { ok = false; break; }
+      if (!ok) continue;
+      let end = start + P;
+      while (end < n && same(end, end - P)) end++;
+      const action = n - end >= 3 ? [end, n - 1] : null;
+      return { idle: [start, start + P - 1], action, method: 'opakující se smyčka' };
+    }
+  }
+
+  // 2) záloha: akce = nejdelší blok snímků, které se nikde jinde v GIFu nevrací
+  let opaque = 0;
+  for (let i = 3; i < data[0].length; i += 4) if (data[0][i] > 127) opaque++;
+  const unique = data.map((d, i) => {
+    let m = Infinity;
+    for (let j = 0; j < n; j++) if (Math.abs(i - j) >= 3) m = Math.min(m, frameDiff(d, data[j]));
+    return m > Math.max(4, opaque * 0.04);
+  });
+  let best = null, s = -1, last = -1;
+  for (let i = 0; i <= n; i++){
+    if (i < n && unique[i]){ if (s < 0) s = i; last = i; }
+    else if (s >= 0 && (i === n || i - last > 2)){
+      if (!best || last - s > best[1] - best[0]) best = [s, last];
+      s = -1;
+    }
+  }
+  if (best && best[1] - best[0] >= 2){
+    const idle = best[0] >= 4 ? [0, best[0] - 1] : [best[1] + 1, n - 1];
+    return { idle, action: best, method: 'neopakující se snímky' };
+  }
+
+  // 3) nic nenalezeno – celý GIF je idle, útok udělá jen kód
+  return { idle: [0, n - 1], action: null, method: 'akce nenalezena' };
+}
+
+async function loadGifSprite(url){
+  const { parseGIF, decompressFrames } = await import(GIFUCT_URL);
+  const res = await fetch(url);
+  if (!res.ok) throw new Error('HTTP ' + res.status);
+  const gif = parseGIF(await res.arrayBuffer());
+  const raw = decompressFrames(gif, true);
+  const W = gif.lsd.width, H = gif.lsd.height;
+
+  // složit "patche" do plných snímků podle disposal metody GIFu
+  let buf = new Uint8ClampedArray(W * H * 4);
+  const data = [], delays = [];
+  for (const f of raw){
+    const backup = f.disposalType === 3 ? buf.slice() : null;
+    const { left, top, width, height } = f.dims;
+    for (let y = 0; y < height; y++) for (let x = 0; x < width; x++){
+      const si = (y * width + x) * 4;
+      if (!f.patch[si + 3]) continue;
+      const di = ((top + y) * W + left + x) * 4;
+      buf[di] = f.patch[si]; buf[di+1] = f.patch[si+1]; buf[di+2] = f.patch[si+2]; buf[di+3] = f.patch[si+3];
+    }
+    data.push(buf.slice());
+    delays.push(f.delay || 100);
+    if (f.disposalType === 2){
+      for (let y = 0; y < height; y++) buf.fill(0, ((top + y) * W + left) * 4, ((top + y) * W + left + width) * 4);
+    } else if (backup) buf = backup;
+  }
+
+  const frames = data.map(d => {
+    const c = document.createElement('canvas');
+    c.width = W; c.height = H;
+    c.getContext('2d').putImageData(new ImageData(d, W, H), 0, 0);
+    return c;
+  });
+  // zem = nejnižší neprůhledný řádek přes všechny snímky
+  let ground = 0;
+  for (const d of data) for (let y = H - 1; y > ground; y--){
+    let hit = false;
+    for (let x = 0; x < W; x++) if (d[(y * W + x) * 4 + 3] > 127){ hit = true; break; }
+    if (hit){ ground = y; break; }
+  }
+  const shadows = data.map(d => projectShadow((x, y) => d[(y * W + x) * 4 + 3] > 127, W, H, ground));
+  return { W, H, frames, delays, shadows, data, ...splitIdleAction(data) };
+}
+
+/* ---------- Pixelové vržené stíny ----------
+   Světlo svítí zleva shora, takže stín padá doprava dozadu. Každý neprůhledný pixel
+   snímku ve výšce h nad zemí se promítne na zem do bodu (x + h·SHEAR, zem − h·SQUASH).
+   Stín tak má přesný tvar pokémona, hýbe se s animací a je ve stejné pixelové mřížce.
+   Jádro tmavší, okraj o pixel světlejší. */
+const SHADOW_RGB = [8, 4, 14];
+const SHADOW_SHEAR = 1.5;    // jak moc stín padá doprava (0 = přímo pod pokémona)
+const SHADOW_SQUASH = 0.32;  // jak "vysoký" je stín na zemi (perspektiva)
+
+function shadowGeom(W, ground){
+  return {
+    Ws: W + Math.ceil(ground * SHADOW_SHEAR) + 2,
+    Hs: Math.round(ground * SHADOW_SQUASH) + 3,
+  };
+}
+
+// opaque(x, y) → je pixel spritu neprůhledný; ground = řádek, kde pokémon stojí
+function projectShadow(opaque, W, H, ground){
+  const { Ws, Hs } = shadowGeom(W, ground);
+  const mask = new Uint8Array(Ws * Hs);
+  for (let y = 0; y < H; y++){
+    const h = Math.max(0, ground - y);
+    const sy = Hs - 2 - Math.round(h * SHADOW_SQUASH);
+    const dx = Math.round(h * SHADOW_SHEAR);
+    for (let x = 0; x < W; x++) if (opaque(x, y)) mask[sy * Ws + x + dx] = 1;
+  }
+  return paintShadow(mask, Ws, Hs);
+}
+
+function paintShadow(mask, W, Hs){
+  const img = new ImageData(W, Hs), px = img.data;
+  const at = (x, y) => x >= 0 && y >= 0 && x < W && y < Hs && mask[y * W + x];
+  for (let y = 0; y < Hs; y++) for (let x = 0; x < W; x++){
+    let a = 0;
+    if (at(x, y)) a = 0.58;
+    else if (at(x - 1, y) || at(x + 1, y) || at(x, y - 1) || at(x, y + 1)) a = 0.26;
+    if (!a) continue;
+    const i = (y * W + x) * 4;
+    px[i] = SHADOW_RGB[0]; px[i + 1] = SHADOW_RGB[1]; px[i + 2] = SHADOW_RGB[2];
+    px[i + 3] = Math.round(a * 255);
+  }
+  const c = document.createElement('canvas');
+  c.width = W; c.height = Hs;
+  c.getContext('2d').putImageData(img, 0, 0);
+  return c;
+}
+
+// nastaví plátno stínu: šířka v % šířky spritu, spodní řádek stínu na linii nohou
+function setupShadowCanvas(box, W, shadow){
+  const sc = box.querySelector('.shadow-px');
+  sc.width = shadow.width; sc.height = shadow.height;
+  sc.style.width = (shadow.width / W * 100) + '%';
+  sc.style.transform = `translateY(-${((shadow.height - 1.5) / shadow.height * 100).toFixed(2)}%)`;
+  return sc;
+}
+
+// než se GIF rozloží (nebo když nejde rozložit): stín z elipsy vepsané do obrázku
+function drawFallbackShadow(box, W, H){
+  if (!W || box.querySelector('canvas.pokemon')) return;
+  const shadow = projectShadow((x, y) => ((x - W / 2) / (W * 0.42)) ** 2 + ((y - H * 0.55) / (H * 0.45)) ** 2 <= 1, W, H, H - 1);
+  setupShadowCanvas(box, W, shadow).getContext('2d').drawImage(shadow, 0, 0);
+}
+
+/* ---------- Pixelové nasvícení pokémonů (beta) ----------
+   Světlo svítí zleva shora (stejně jako vržené stíny). Pro každý pixel spritu se změří,
+   jak hluboko v těle leží ve směru ke světlu (t = 0 na osvětlené hraně, 1 na odvrácené).
+   Podle toho dostane pás: světlý okraj (rim light), nic, stín, hluboký stín – ostré pásy
+   jako v ručním pixel artu. Černé obrysy zůstávají beze změny.
+   Čelem (soupeř): světlo víc shora, jemnější stín. Zády (hráč): světlo víc z boku,
+   silnější světlý okraj a hlubší stín na odvrácené straně. */
+var lightOn = false;          // var – čte se i z kódu, který běží dřív, než se sem skript dostane
+var shadingVersion = 0;       // zvýší se při změně arény/přepínače → přepočítat nasvícené snímky
+const LIGHT_PROFILES = {
+  front: { dir: [-1, -0.9], rim: 0.26, shade1: 0.6, shade2: 0.86, s1: 0.22, s2: 0.38 },
+  back:  { dir: [-1, -0.4], rim: 0.36, shade1: 0.5, shade2: 0.8,  s1: 0.3,  s2: 0.48 },
+};
+// barva světla a stínu podle arény
+const ARENA_LIGHT = {
+  volcano: { light: [255, 160, 80],  shade: [50, 8, 30] },
+  storm:   { light: [170, 190, 255], shade: [10, 14, 40] },
+  mountain:{ light: [215, 228, 255], shade: [22, 32, 72] },
+  ocean:   { light: [255, 190, 130], shade: [40, 28, 70] },
+  desert:  { light: [255, 210, 150], shade: [70, 40, 30] },
+  grave:   { light: [205, 215, 255], shade: [18, 12, 40] },
+  jungle:  { light: [255, 230, 160], shade: [8, 24, 16] },
+  nether:  { light: [235, 170, 255], shade: [30, 8, 56] },
+  aether:  { light: [255, 236, 190], shade: [70, 44, 100] },
+  fel:     { light: [255, 170, 110], shade: [44, 10, 20] },
+};
+
+/* Barevné ladění (color grading) pokémonů podle arény:
+   sat = sytost, amb = barva okolí (násobí se se sprite), k = síla násobení, bri = jas */
+var gradeOn = true;
+const ARENA_GRADE = {
+  volcano: { sat: 1.05, amb: [255, 165, 128], k: 0.4,  bri: 0.94 },
+  storm:   { sat: 0.82, amb: [165, 178, 240], k: 0.32, bri: 0.85 },
+  mountain:{ sat: 0.85, amb: [190, 206, 255], k: 0.3,  bri: 0.92 },
+  ocean:   { sat: 1.05, amb: [255, 200, 170], k: 0.3,  bri: 0.97 },
+  desert:  { sat: 0.95, amb: [255, 215, 160], k: 0.3,  bri: 0.95 },
+  grave:   { sat: 0.72, amb: [165, 175, 235], k: 0.38, bri: 0.8 },
+  jungle:  { sat: 0.9,  amb: [185, 215, 150], k: 0.32, bri: 0.88 },
+  nether:  { sat: 0.9,  amb: [210, 165, 255], k: 0.36, bri: 0.88 },
+  aether:  { sat: 1.0,  amb: [255, 220, 200], k: 0.26, bri: 1.0 },
+  fel:     { sat: 0.92, amb: [255, 180, 150], k: 0.36, bri: 0.9 },
+};
+function gradePixels(px){
+  const g = ARENA_GRADE[arena];
+  if (!g) return;
+  for (let i = 0; i < px.length; i += 4){
+    if (!px[i + 3]) continue;
+    let r = px[i], gg = px[i + 1], b = px[i + 2];
+    const lum = r * 0.3 + gg * 0.59 + b * 0.11;
+    r = lum + (r - lum) * g.sat; gg = lum + (gg - lum) * g.sat; b = lum + (b - lum) * g.sat;
+    r += (r * g.amb[0] / 255 - r) * g.k; gg += (gg * g.amb[1] / 255 - gg) * g.k; b += (b * g.amb[2] / 255 - b) * g.k;
+    px[i] = r * g.bri; px[i + 1] = gg * g.bri; px[i + 2] = b * g.bri;
+  }
+}
+
+function computeLightBands(d, W, H, prof){
+  const bands = new Int8Array(W * H);
+  const len = Math.hypot(prof.dir[0], prof.dir[1]);
+  const lx = prof.dir[0] / len, ly = prof.dir[1] / len;
+  const opaque = (x, y) => x >= 0 && y >= 0 && x < W && y < H && d[(y * W + x) * 4 + 3] > 127;
+  const march = (x, y, sx, sy) => {
+    let n = 0, fx = x + 0.5, fy = y + 0.5;
+    while (n < 200){ fx += sx; fy += sy; if (!opaque(Math.floor(fx), Math.floor(fy))) break; n++; }
+    return n;
+  };
+  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++){
+    const i = (y * W + x) * 4;
+    if (d[i + 3] <= 127) continue;
+    if (d[i] + d[i + 1] + d[i + 2] < 150) continue;          // obrysy nechat být
+    const toLight = march(x, y, lx, ly), away = march(x, y, -lx, -ly);
+    const t = toLight / (toLight + away + 1);
+    if (toLight === 0 || !opaque(x + Math.sign(lx), y) || !opaque(x, y + Math.sign(ly))) bands[y * W + x] = 1;
+    else if (t > prof.shade2) bands[y * W + x] = -2;
+    else if (t > prof.shade1) bands[y * W + x] = -1;
+  }
+  return bands;
+}
+
+// upravený snímek: barvy arény + nasvícení (počítá se až když je potřeba a ukládá se)
+function getLitFrame(sp, box, frame){
+  if (sp.lit[frame]) return sp.lit[frame];
+  const { sprite } = sp, W = sprite.W, H = sprite.H;
+  const prof = LIGHT_PROFILES[box.id === 'playerBox' ? 'back' : 'front'];
+  const src = sprite.data[frame];
+  const out = new ImageData(new Uint8ClampedArray(src), W, H), px = out.data;
+  if (gradeOn) gradePixels(px);
+  if (lightOn) applyLight(sp, frame, prof, src, px, W, H);
+  const c = document.createElement('canvas');
+  c.width = W; c.height = H;
+  c.getContext('2d').putImageData(out, 0, 0);
+  return (sp.lit[frame] = c);
+}
+function applyLight(sp, frame, prof, src, px, W, H){
+  sp.bands[frame] ||= computeLightBands(src, W, H, prof);
+  const bands = sp.bands[frame];
+  const col = ARENA_LIGHT[arena] || ARENA_LIGHT.volcano;
+  for (let k = 0; k < bands.length; k++){
+    const b = bands[k]; if (!b) continue;
+    const i = k * 4;
+    const [tc, a] = b > 0 ? [col.light, prof.rim] : [col.shade, b === -1 ? prof.s1 : prof.s2];
+    px[i] += (tc[0] - px[i]) * a; px[i + 1] += (tc[1] - px[i + 1]) * a; px[i + 2] += (tc[2] - px[i + 2]) * a;
+  }
+}
+
+const lightBtn = document.getElementById('lightBtn');
+try { lightOn = localStorage.getItem('pokeIdle.light') === '1'; } catch {}
+function updateLightBtn(){ lightBtn.textContent = 'Světlo (beta): ' + (lightOn ? 'zap' : 'vyp'); }
+lightBtn.addEventListener('click', () => {
+  lightOn = !lightOn;
+  try { localStorage.setItem('pokeIdle.light', lightOn ? '1' : '0'); } catch {}
+  shadingVersion++;
+  updateLightBtn();
+});
+updateLightBtn();
+
+const gradeBtn = document.getElementById('gradeBtn');
+try { gradeOn = localStorage.getItem('pokeIdle.grade') !== '0'; } catch {}
+function updateGradeBtn(){ gradeBtn.textContent = 'Barvy arény: ' + (gradeOn ? 'zap' : 'vyp'); }
+gradeBtn.addEventListener('click', () => {
+  gradeOn = !gradeOn;
+  try { localStorage.setItem('pokeIdle.grade', gradeOn ? '1' : '0'); } catch {}
+  shadingVersion++;
+  updateGradeBtn();
+});
+updateGradeBtn();
+
+function rangeMs(sprite, [a, b]){
+  let ms = 0;
+  for (let i = a; i <= b; i++) ms += sprite.delays[i];
+  return ms;
+}
+
+async function initSprite(box){
+  box._spriteToken = (box._spriteToken || 0) + 1;
+  const token = box._spriteToken;
+  const sprite = await loadGifSprite(box.dataset.sprite);
+  if (token !== box._spriteToken) return;   // mezitím se pokémon vyměnil
+  const img = box.querySelector('.pokemon');
+  const canvas = document.createElement('canvas');
+  canvas.className = 'pokemon';
+  canvas.id = img.id;
+  canvas.width = sprite.W; canvas.height = sprite.H;
+  img.replaceWith(canvas);
+
+  const shadowCanvas = setupShadowCanvas(box, sprite.W, sprite.shadows[0]);
+  const sp = {
+    sprite, canvas, ctx: canvas.getContext('2d'),
+    sctx: shadowCanvas.getContext('2d'),
+    mode: 'idle', frame: sprite.idle[0], acc: 0, speed: 1, onDone: null, drawn: -1,
+  };
+  spritePlayers.set(box, sp);
+  applyMon(box);
+  console.log(`[sprite] ${box.dataset.name}: ${sprite.frames.length} snímků, idle ${sprite.idle.join('–')}, akce ${sprite.action ? sprite.action.join('–') : '—'} (${sprite.method})`);
+}
+
+// přehraje akční část GIFu jednou a vrátí se do idle
+function playAction(box, speed = 1){
+  const sp = spritePlayers.get(box);
+  if (!sp || !sp.sprite.action) return Promise.resolve();
+  if (sp.onDone) sp.onDone();
+  return new Promise(resolve => {
+    sp.mode = 'action';
+    sp.frame = sp.sprite.action[0];
+    sp.acc = 0;
+    sp.speed = speed;
+    sp.onDone = resolve;
+  });
+}
+
+function tickSprites(dt){
+  spritePlayers.forEach((sp, box) => {
+    if (monState.get(box) !== 'faint'){
+      const { sprite } = sp;
+      sp.acc += dt * sp.speed;
+      while (sp.acc >= sprite.delays[sp.frame]){
+        sp.acc -= sprite.delays[sp.frame];
+        const range = sp.mode === 'action' ? sprite.action : sprite.idle;
+        if (sp.frame < range[1]) { sp.frame++; continue; }
+        if (sp.mode === 'action'){
+          sp.mode = 'idle'; sp.speed = 1;
+          const done = sp.onDone; sp.onDone = null;
+          if (done) done();
+        }
+        sp.frame = sprite.idle[0];
+      }
+    }
+    if (sp.shadeVer !== shadingVersion){   // jiná aréna / přepnuté světlo → přepočítat
+      sp.shadeVer = shadingVersion;
+      sp.lit = [];
+      sp.bands ||= [];
+      sp.drawn = -1;
+    }
+    if (sp.drawn !== sp.frame){
+      sp.ctx.clearRect(0, 0, sp.canvas.width, sp.canvas.height);
+      sp.ctx.drawImage(lightOn || gradeOn ? getLitFrame(sp, box, sp.frame) : sp.sprite.frames[sp.frame], 0, 0);
+      sp.sctx.clearRect(0, 0, sp.sctx.canvas.width, sp.sctx.canvas.height);
+      sp.sctx.drawImage(sp.sprite.shadows[sp.frame], 0, 0);
+      sp.drawn = sp.frame;
+    }
+  });
+}
+
+function spriteInfoText(box){
+  const sp = spritePlayers.get(box);
+  if (!sp) return 'GIF se ještě načítá (nebo nejde rozložit) – útok jen kódem';
+  const { sprite } = sp;
+  const m = (HEIGHTS[box.dataset.id - 1] || 0) / 10;
+  const k = spriteScaleFor(box, sprite.H);
+  return `Výška v lore: ${m.toLocaleString('cs-CZ')} m · velikost ${k.toLocaleString('cs-CZ')}× (${SIZE_PRESETS.find(p => p.key === sizePreset).label}) · GIF: ${sprite.frames.length} snímků · idle ${sprite.idle.join('–')} · akce ${sprite.action ? sprite.action.join('–') : '—'} (${sprite.method})`;
+}
+
+function startSprite(box){
+  initSprite(box).catch(err => {
+    console.warn(`[sprite] ${box.dataset.name}: GIF nejde rozložit, zůstává obyčejný GIF.`, err);
+  });
+}
+mons.forEach(startSprite);
+
+// vymění pokémona v boxu (nový GIF, znovu rozložit na idle/akci)
+function setMonSprite(box, data){
+  applyMonData(box, data);
+  spritePlayers.delete(box);
+  const old = box.querySelector('.pokemon');
+  const img = document.createElement('img');
+  img.className = 'pokemon';
+  img.id = old.id;
+  img.alt = old.alt;
+  img.draggable = false;
+  img.addEventListener('load', () => { applyMon(box); drawFallbackShadow(box, img.naturalWidth, img.naturalHeight); });
+  img.src = box.dataset.sprite;
+  old.replaceWith(img);
+  startSprite(box);
+}
+
+/* ---------- Animace pokémonů ----------
+   Stavy: idle (idle část GIFu + houpání), attack (akční část GIFu + výpad),
+   hurt, faint (+ revive zpět do idle). Výpad, zásah a faint dělá kód (Web Animations API). */
+const monState = new Map(mons.map(box => [box, 'idle']));
+const opponentOf = box => mons.find(m => m !== box);
+
+function setState(box, state){
+  monState.set(box, state);
+  box.dataset.state = state;
+}
+
+async function attack(box){
+  if (monState.get(box) !== 'idle') return;
+  const target = opponentOf(box);
+  setState(box, 'attack');
+
+  // směr k soupeři (v px obrazovky), přepočtený přes scale útočníka
+  const a = box.getBoundingClientRect(), b = target.getBoundingClientRect();
+  let dx = (b.left + b.width / 2) - (a.left + a.width / 2);
+  let dy = (b.top + b.height / 2) - (a.top + a.height / 2);
+  const dist = Math.hypot(dx, dy) || 1;
+  const rush = Math.min(90, dist * 0.35);
+  const scale = layout[box.id]?.scale ?? 1;
+  dx = dx / dist * rush / scale;
+  dy = dy / dist * rush / scale;
+
+  // pokud má GIF akční část, přehraje se a výpad proběhne zhruba v jejích 40 %
+  const sp = spritePlayers.get(box);
+  const actionMs = sp?.sprite.action ? rangeMs(sp.sprite, sp.sprite.action) / ACTION_SPEED : 0;
+  const DURATION = 520, HIT_AT = 0.45;
+  const delay = Math.max(0, actionMs * 0.4 - DURATION * HIT_AT);
+  const actionDone = playAction(box, ACTION_SPEED);
+  const anim = box.querySelector('.anim').animate([
+    { transform: 'translate(0,0)' },
+    { transform: `translate(${-dx * 0.2}px, ${-dy * 0.2}px)`, offset: 0.3 },   // nádech
+    { transform: `translate(${dx}px, ${dy}px)`, offset: HIT_AT },              // výpad
+    { transform: `translate(${dx * 0.8}px, ${dy * 0.8}px)`, offset: 0.6 },
+    { transform: 'translate(0,0)' },                                          // návrat
+  ], { duration: DURATION, delay, easing: 'ease-in-out' });
+
+  setTimeout(() => hurt(target), delay + DURATION * HIT_AT);
+  await Promise.all([anim.finished, actionDone]);
+  if (monState.get(box) === 'attack') setState(box, 'idle');
+}
+
+async function hurt(box){
+  if (monState.get(box) === 'faint') return;
+  const prev = monState.get(box);
+  if (prev === 'idle') setState(box, 'hurt');
+
+  const shake = box.querySelector('.anim').animate([
+    { transform: 'translateX(0)' },
+    { transform: 'translateX(-7px)' },
+    { transform: 'translateX(6px)' },
+    { transform: 'translateX(-4px)' },
+    { transform: 'translateX(2px)' },
+    { transform: 'translateX(0)' },
+  ], { duration: 320, easing: 'ease-out' });
+
+  const img = box.querySelector('.pokemon');
+  const blink = img.animate([
+    { opacity: 1, filter: 'brightness(1)' },
+    { opacity: .2, filter: 'brightness(3)' },
+    { opacity: 1, filter: 'brightness(1)' },
+    { opacity: .2, filter: 'brightness(3)' },
+    { opacity: 1, filter: 'brightness(1)' },
+    { opacity: .2, filter: 'brightness(3)' },
+    { opacity: 1, filter: 'brightness(1)' },
+  ], { duration: 560 });
+
+  await Promise.all([shake.finished, blink.finished]);
+  if (monState.get(box) === 'hurt') setState(box, 'idle');
+}
+
+function faint(box){
+  if (monState.get(box) === 'faint') return;
+  setState(box, 'faint');
+  const img = box.querySelector('.pokemon');
+  const shadow = box.querySelector('.shadow');
+  box._faintAnims = [
+    // zajede dolů "do země" a zmizí – jako v klasických hrách
+    img.animate([
+      { transform: 'translateY(0)', opacity: 1, clipPath: 'inset(0 0 0 0)' },
+      { transform: 'translateY(60%)', opacity: 0, clipPath: 'inset(0 0 60% 0)' },
+    ], { duration: 650, easing: 'ease-in', fill: 'forwards' }),
+    shadow.animate([
+      { transform: 'scale(1)', opacity: 1 },
+      { transform: 'scale(0)', opacity: 0 },
+    ], { duration: 650, easing: 'ease-in', fill: 'forwards' }),
+  ];
+  if (box.id === 'enemyBox') onEnemyDefeated(box);
+}
+
+async function revive(box){
+  if (monState.get(box) !== 'faint') return;
+  (box._faintAnims || []).forEach(a => a.cancel());
+  box._faintAnims = null;
+  const img = box.querySelector('.pokemon');
+  setState(box, 'revive');
+  await img.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 350 }).finished;
+  setState(box, 'idle');
+}
+
+async function action(box){
+  if (monState.get(box) !== 'idle') return;
+  setState(box, 'action');
+  await playAction(box);
+  if (monState.get(box) === 'action') setState(box, 'idle');
+}
+
+const ANIMS = { attack, action, hurt, faint, revive };
+mons.forEach(box => setState(box, 'idle'));
+
+/* ---------- Menu arén ---------- */
+const arenaMenu = document.getElementById('arenaMenu');
+const arenaBtn = document.getElementById('arenaBtn');
+const fade = document.getElementById('fade');
+Object.entries(ARENAS).forEach(([key, a]) => {
+  const b = document.createElement('button');
+  b.className = 'pbtn arena-opt';
+  b.dataset.arena = key;
+  b.innerHTML = `<span class="thumb" style="background-image:url('${a.thumb}')"></span><span>${a.name}</span>`;
+  arenaMenu.appendChild(b);
+});
+
+// skupiny přepínačů efektů (Sopečná ›, Bouřková ›) – kliknutím se rozbalí
+for (const g of ARENA_TOGGLES){
+  const head = document.createElement('button');
+  head.className = 'pbtn small toggle-head';
+  const box = document.createElement('div');
+  box.className = 'toggle-group';
+  box.hidden = true;
+  const updateHead = () => { head.textContent = g.group + (box.hidden ? ' ›' : ' ⌄'); };
+  head.addEventListener('click', () => { box.hidden = !box.hidden; updateHead(); });
+  updateHead();
+  for (const it of g.items){
+    const b = document.createElement('button');
+    b.className = 'pbtn small';
+    const update = () => { b.textContent = it.label + ': ' + (PX_OPTIONS[it.key] ? (it.on || 'zap') : (it.off || 'vyp')); };
+    b.addEventListener('click', () => {
+      PX_OPTIONS[it.key] = !PX_OPTIONS[it.key];
+      try { localStorage.setItem('pokeIdle.opt.' + it.key, PX_OPTIONS[it.key] ? '1' : '0'); } catch {}
+      if (it.rebuild){                       // volba mění statické vrstvy → arénu znovu připravit
+        const a = ARENAS[it.rebuild];
+        a.render = pxSetupArena(document.querySelector(`[data-arena-el="${it.rebuild}"]`), a.pixel);
+        a.render(performance.now() / 1000);
+      }
+      update();
+    });
+    update();
+    box.appendChild(b);
+  }
+  arenaMenu.append(head, box);
+}
+function updateArenaMenu(){
+  arenaMenu.querySelectorAll('.arena-opt').forEach(b => b.classList.toggle('active', b.dataset.arena === arena));
+}
+arenaBtn.addEventListener('click', () => {
+  updateArenaMenu();
+  arenaMenu.classList.toggle('open');
+});
+arenaMenu.addEventListener('click', (e) => {
+  const b = e.target.closest('.arena-opt');
+  if (!b) return;
+  arenaMenu.classList.remove('open');
+  if (b.dataset.arena !== arena) switchArena(b.dataset.arena);
+});
+document.addEventListener('pointerdown', (e) => {
+  if (!arenaMenu.contains(e.target) && e.target !== arenaBtn) arenaMenu.classList.remove('open');
+});
+
+// retro přechod: ztmavit → přepnout → rozsvítit (po krocích jako na GameBoyi)
+async function switchArena(key){
+  closePanel();
+  await fade.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 300, easing: 'steps(5)', fill: 'forwards' }).finished;
+  showArena(key);
+  await fade.animate([{ opacity: 1 }, { opacity: 0 }], { duration: 400, easing: 'steps(5)', fill: 'forwards' }).finished;
+}
+
+/* ---------- Panel pro scale ---------- */
+const panel = document.getElementById('scalePanel');
+const panelName = document.getElementById('panelName');
+const scaleRange = document.getElementById('scaleRange');
+const scaleValue = document.getElementById('scaleValue');
+const spriteInfo = document.getElementById('spriteInfo');
+let selected = null;
+
+function openPanel(box){
+  if (selected) selected.classList.remove('selected');
+  selected = box;
+  box.classList.add('selected');
+  panelName.innerHTML = (box.dataset.shiny ? STAR : '') + box.dataset.name;
+  const s = layout[box.id]?.scale ?? 1;
+  scaleRange.value = s;
+  scaleValue.textContent = Number(s).toFixed(2) + '×';
+  spriteInfo.textContent = spriteInfoText(box);
+
+  panel.classList.add('open');
+  // panel vedle pokémona, ale vždy uvnitř okna
+  const r = box.getBoundingClientRect();
+  const pw = panel.offsetWidth, ph = panel.offsetHeight;
+  let x = r.right + 12;
+  if (x + pw > innerWidth - 8) x = r.left - pw - 12;
+  x = Math.max(8, Math.min(x, innerWidth - pw - 8));
+  let y = r.top + r.height / 2 - ph / 2;
+  y = Math.max(8, Math.min(y, innerHeight - ph - 8));
+  panel.style.left = x + 'px';
+  panel.style.top = y + 'px';
+}
+function closePanel(){
+  panel.classList.remove('open');
+  if (selected) selected.classList.remove('selected');
+  selected = null;
+}
+
+scaleRange.addEventListener('input', () => {
+  if (!selected) return;
+  const s = Number(scaleRange.value);
+  layout[selected.id] = { ...layout[selected.id], scale: s };
+  scaleValue.textContent = s.toFixed(2) + '×';
+  applyMon(selected);
+  saveLayout();
+});
+document.getElementById('scaleReset').addEventListener('click', () => {
+  if (!selected) return;
+  layout[selected.id] = { ...layout[selected.id], scale: 1 };
+  scaleRange.value = 1;
+  scaleValue.textContent = '1.00×';
+  applyMon(selected);
+  saveLayout();
+});
+document.getElementById('posReset').addEventListener('click', () => {
+  if (!selected) return;
+  const { left, bottom, ...rest } = layout[selected.id] || {};
+  layout[selected.id] = rest;
+  applyMon(selected);
+  saveLayout();
+  openPanel(selected); // přesunout panel k nové pozici
+});
+document.getElementById('panelClose').addEventListener('click', closePanel);
+panel.querySelectorAll('[data-anim]').forEach(btn => {
+  btn.addEventListener('click', () => { if (selected) ANIMS[btn.dataset.anim](selected); });
+});
+
+// klik mimo panel a pokémona panel zavře, stejně tak Esc
+document.addEventListener('pointerdown', (e) => {
+  if (!panel.classList.contains('open')) return;
+  if (panel.contains(e.target) || e.target.closest('.mon')) return;
+  closePanel();
+});
+document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closePanel(); });
+
+/* ---------- Toasty + shiny třpyt ---------- */
+const toasts = document.getElementById('toasts');
+function toast(text, shiny = false){
+  const el = document.createElement('div');
+  el.className = 'toast' + (shiny ? ' shiny' : '');
+  el.innerHTML = (shiny ? STAR : '') + '<span></span>';
+  el.lastChild.textContent = text;
+  toasts.appendChild(el);
+  el.animate([{ opacity: 0, transform: 'translateY(-12px)' }, { opacity: 1, transform: 'none' }], { duration: 200, easing: 'steps(4)' });
+  setTimeout(() => el.animate([{ opacity: 1 }, { opacity: 0 }], { duration: 300, easing: 'steps(4)' }).finished.then(() => el.remove()), 2600);
+}
+
+function sparkle(box, count = 14){
+  const host = box.querySelector('.anim');
+  for (let i = 0; i < count; i++){
+    const s = document.createElement('i');
+    s.className = 'pstar sparkle';
+    host.appendChild(s);
+    const ang = Math.random() * Math.PI * 2, dist = 50 + Math.random() * 70;
+    const size = 1 + Math.round(Math.random() * 2);   // celé násobky = ostré pixely
+    s.animate([
+      { transform: 'translate(0,0) scale(0) rotate(0deg)', opacity: 1 },
+      { transform: `translate(${Math.cos(ang) * dist * .6}px, ${Math.sin(ang) * dist * .6}px) scale(${size}) rotate(90deg)`, opacity: 1, offset: .5 },
+      { transform: `translate(${Math.cos(ang) * dist}px, ${Math.sin(ang) * dist}px) scale(0) rotate(180deg)`, opacity: 0 },
+    ], { duration: 900 + Math.random() * 400, delay: Math.random() * 250, easing: 'ease-out' })
+      .finished.then(() => s.remove());
+  }
+}
+
+/* ---------- Deník (Pokédex) ----------
+   dex[id] = { caught: čas prvního chycení, shiny: čas prvního shiny, count: kolikrát poražen } */
+const DEX_KEY = 'pokeIdle.dex';
+let dex = {};
+try { dex = JSON.parse(localStorage.getItem(DEX_KEY)) || {}; } catch { dex = {}; }
+if (!Object.keys(dex).length) dex[battle.player.id] = { caught: Date.now(), count: 0 };   // startér
+function saveDex(){ try { localStorage.setItem(DEX_KEY, JSON.stringify(dex)); } catch {} }
+
+// vrací co je nového: 'new', 'shiny', nebo null
+function registerMon(id, shiny){
+  const e = dex[id] || (dex[id] = { count: 0 });
+  let news = null;
+  if (!e.caught){ e.caught = Date.now(); news = 'new'; }
+  if (shiny && !e.shiny){ e.shiny = Date.now(); news = 'shiny'; }
+  e.count = (e.count || 0) + 1;
+  saveDex();
+  if (journal.classList.contains('open')) renderDex();
+  return news;
+}
+
+function onEnemyDefeated(box){
+  const id = Number(box.dataset.id), shiny = !!box.dataset.shiny;
+  const news = registerMon(id, shiny);
+  if (news === 'shiny') toast(`Nový shiny v deníku: ${NAMES[id - 1]}!`, true);
+  else if (news === 'new') toast(`Nový záznam v deníku: #${pad3(id)} ${NAMES[id - 1]}`);
+  clearTimeout(box._spawnTimer);
+  box._spawnTimer = setTimeout(() => {
+    if (monState.get(box) === 'faint') spawnEnemy();
+  }, 1500);
+}
+
+function randomMon(){
+  return { id: 1 + Math.floor(Math.random() * DEX_MAX), shiny: Math.random() < SHINY_CHANCE };
+}
+
+async function spawnEnemy(data = randomMon()){
+  const box = document.getElementById('enemyBox');
+  (box._faintAnims || []).forEach(a => a.cancel());
+  box._faintAnims = null;
+  battle.enemy = data;
+  saveBattle();
+  setMonSprite(box, data);
+  setState(box, 'revive');
+  if (data.shiny) toast(`Objevil se shiny ${NAMES[data.id - 1]}!`, true);
+  await box.querySelector('.anim').animate([
+    { opacity: 0, transform: 'translateY(-24px)' },
+    { opacity: 1, transform: 'translateY(0)' },
+  ], { duration: 450, easing: 'ease-out' }).finished;
+  if (data.shiny) sparkle(box);
+  setState(box, 'idle');
+}
+
+async function sendToBattle(data){
+  const box = document.getElementById('playerBox');
+  (box._faintAnims || []).forEach(a => a.cancel());
+  box._faintAnims = null;
+  battle.player = data;
+  saveBattle();
+  setMonSprite(box, data);
+  setState(box, 'revive');
+  await box.querySelector('.anim').animate([
+    { opacity: 0, transform: 'scale(.6)' },
+    { opacity: 1, transform: 'scale(1)' },
+  ], { duration: 400, easing: 'ease-out' }).finished;
+  if (data.shiny) sparkle(box);
+  setState(box, 'idle');
+}
+
+const journal = document.getElementById('journal');
+const dexGrid = document.getElementById('dexGrid');
+const dexSearch = document.getElementById('dexSearch');
+const dexOnlyOwned = document.getElementById('dexOnlyOwned');
+let dexMode = 'normal', dexGen = 0;
+document.getElementById('shinyChance').textContent = '1/' + Math.round(1 / SHINY_CHANCE);
+
+const isOwned = (id, mode = dexMode) => !!(mode === 'shiny' ? dex[id]?.shiny : dex[id]?.caught);
+
+function renderDex(){
+  const shiny = dexMode === 'shiny';
+  journal.classList.toggle('shiny-mode', shiny);
+
+  const caught = Object.values(dex).filter(e => e.caught).length;
+  const shinies = Object.values(dex).filter(e => e.shiny).length;
+  document.getElementById('dexStats').innerHTML =
+    `Odemčeno ${caught}/${DEX_MAX} &nbsp; ${STAR} Shiny ${shinies}/${DEX_MAX}`;
+  document.getElementById('dexProgress').style.width = ((shiny ? shinies : caught) / DEX_MAX * 100) + '%';
+
+  const q = dexSearch.value.trim().toLowerCase().replace(/^#/, '');
+  const frag = document.createDocumentFragment();
+  for (let id = 1; id <= DEX_MAX; id++){
+    if (dexGen && genOf(id) !== dexGen) continue;
+    const owned = isOwned(id);
+    if (dexOnlyOwned.checked && !owned) continue;
+    // jméno jde hledat jen u odemčených, číslo u všech
+    if (q && !(String(id) === q.replace(/^0+/, '') || pad3(id).startsWith(q) || (owned && NAMES[id - 1].toLowerCase().includes(q)))) continue;
+
+    const card = document.createElement('div');
+    card.className = 'dex-card px-box' + (owned ? '' : ' locked') + (owned && shiny ? ' shiny-owned' : '');
+    card.dataset.id = id;
+    card.innerHTML = `
+      <span class="num">#${pad3(id)}</span>
+      ${dex[id]?.shiny && !shiny && owned ? `<span class="star" title="Máš i shiny">${STAR}</span>` : ''}
+      <img loading="lazy" alt="" src="${spriteUrl(id, { shiny: shiny && owned, animated: false })}">
+      ${owned ? '' : '<div class="q">?</div>'}
+      <div class="name">${owned ? NAMES[id - 1] : '???'}</div>`;
+    frag.appendChild(card);
+  }
+  dexGrid.replaceChildren(frag);
+}
+
+function openJournal(){
+  closePanel();
+  journal.classList.add('open');
+  renderDex();
+}
+function closeJournal(){
+  journal.classList.remove('open');
+  closeDetail();
+}
+
+document.getElementById('journalBtn').addEventListener('click', openJournal);
+document.getElementById('journalClose').addEventListener('click', closeJournal);
+journal.addEventListener('pointerdown', (e) => { if (e.target === journal) closeJournal(); });
+
+journal.querySelectorAll('[data-mode]').forEach(btn => btn.addEventListener('click', () => {
+  dexMode = btn.dataset.mode;
+  journal.querySelectorAll('[data-mode]').forEach(b => b.classList.toggle('active', b === btn));
+  renderDex();
+}));
+journal.querySelectorAll('[data-gen]').forEach(btn => btn.addEventListener('click', () => {
+  dexGen = Number(btn.dataset.gen);
+  journal.querySelectorAll('[data-gen]').forEach(b => b.classList.toggle('active', b === btn));
+  renderDex();
+}));
+dexSearch.addEventListener('input', renderDex);
+dexOnlyOwned.addEventListener('change', renderDex);
+
+dexGrid.addEventListener('click', (e) => {
+  const card = e.target.closest('.dex-card');
+  if (!card) return;
+  if (card.classList.contains('locked')){
+    card.classList.remove('shake'); void card.offsetWidth; card.classList.add('shake');
+    return;
+  }
+  openDetail(Number(card.dataset.id), dexMode === 'shiny');
+});
+
+/* detail pokémona */
+const dexDetail = document.getElementById('dexDetail');
+const typeCache = {};
+const TYPE_COLORS = {
+  normal:'#a8a878', fire:'#f08030', water:'#6890f0', grass:'#78c850', electric:'#e0b820', ice:'#78c8c8',
+  fighting:'#c03028', poison:'#a040a0', ground:'#c8a048', flying:'#a890f0', psychic:'#f85888', bug:'#a8b820',
+  rock:'#b8a038', ghost:'#705898', dragon:'#7038f8', dark:'#705848', steel:'#a0a0c0', fairy:'#e898ac',
+};
+let detail = null;
+
+async function openDetail(id, shiny){
+  if (shiny && !dex[id]?.shiny) shiny = false;
+  detail = { id, shiny };
+  const e = dex[id] || {};
+  document.getElementById('detailBox').classList.toggle('shiny', shiny);
+  document.getElementById('detailNum').textContent = `#${pad3(id)} · Gen ${genOf(id)} (${GENS[genOf(id) - 1][2]})`;
+  document.getElementById('detailName').innerHTML = (shiny ? STAR : '') + NAMES[id - 1];
+  document.getElementById('detailImg').src = spriteUrl(id, { shiny });
+  const fmt = ts => new Date(ts).toLocaleDateString('cs-CZ');
+  document.getElementById('detailInfo').innerHTML =
+    `Poprvé chycen: ${e.caught ? fmt(e.caught) : '—'}<br>` +
+    `Shiny: ${e.shiny ? 'ano, od ' + fmt(e.shiny) : 'zatím ne'}<br>` +
+    `Poraženo: ${e.count || 0}×`;
+  document.getElementById('detailNormal').classList.toggle('active', !shiny);
+  document.getElementById('detailShiny').classList.toggle('active', shiny);
+  document.getElementById('detailShiny').disabled = !e.shiny;
+  document.getElementById('detailShiny').style.opacity = e.shiny ? '' : '.4';
+  dexDetail.classList.add('open');
+
+  // typy z PokeAPI (nepovinné – když nejde internet, prostě se nezobrazí)
+  const typesEl = document.getElementById('detailTypes');
+  typesEl.replaceChildren();
+  try {
+    typeCache[id] ??= await fetch(`https://pokeapi.co/api/v2/pokemon/${id}`)
+      .then(r => r.json()).then(d => d.types.map(t => t.type.name));
+    if (detail?.id !== id) return;
+    typesEl.replaceChildren(...typeCache[id].map(t => {
+      const s = document.createElement('span');
+      s.className = 'type';
+      s.textContent = t;
+      s.style.background = TYPE_COLORS[t] || '#888';
+      return s;
+    }));
+  } catch {}
+}
+function closeDetail(){ dexDetail.classList.remove('open'); detail = null; }
+
+document.getElementById('detailClose').addEventListener('click', closeDetail);
+dexDetail.addEventListener('pointerdown', (e) => { if (e.target === dexDetail) closeDetail(); });
+document.getElementById('detailNormal').addEventListener('click', () => detail && openDetail(detail.id, false));
+document.getElementById('detailShiny').addEventListener('click', () => detail && openDetail(detail.id, true));
+document.getElementById('detailSend').addEventListener('click', () => {
+  if (!detail) return;
+  const data = { ...detail };
+  closeJournal();
+  sendToBattle(data);
+});
+
+/* testovací tlačítka */
+document.getElementById('dexDebugUnlock').addEventListener('click', () => {
+  const locked = [];
+  for (let id = 1; id <= DEX_MAX; id++) if (!isOwned(id)) locked.push(id);
+  if (!locked.length) return toast('Všechno už je odemčené!');
+  const id = locked[Math.floor(Math.random() * locked.length)];
+  registerMon(id, dexMode === 'shiny');
+  toast(`Test: odemčen ${dexMode === 'shiny' ? 'shiny ' : ''}#${pad3(id)} ${NAMES[id - 1]}`, dexMode === 'shiny');
+});
+document.getElementById('dexReset').addEventListener('click', () => {
+  if (!confirm('Opravdu smazat celý deník? Zůstane jen pokémon, kterého máš v boji.')) return;
+  dex = { [battle.player.id]: { caught: Date.now(), count: 0, ...(battle.player.shiny ? { shiny: Date.now() } : {}) } };
+  saveDex();
+  renderDex();
+});
+
+document.addEventListener('keydown', (e) => {
+  if (e.target.matches('input')) return;
+  if (e.key === 'j' || e.key === 'J') journal.classList.contains('open') ? closeJournal() : openJournal();
+  if (e.key === 'Escape'){
+    if (dexDetail.classList.contains('open')) closeDetail();
+    else closeJournal();
+  }
+});
+
+/* ---------- Animace ---------- */
+let lastTime = performance.now();
+let pxLastRender = 0;
+function animate(now = performance.now()){
+  const dt = Math.min(100, now - lastTime);
+  lastTime = now;
+  t += 0.016;
+  tickSprites(dt);
+  const pxArena = ARENAS[arena].pixel;
+  if (pxArena && now - pxLastRender > 1000 / (pxArena.fps || 12)){   // ~12 fps stačí a působí retro
+    ARENAS[arena].render(now / 1000);
+    pxLastRender = now;
+    // aréna se světelnými efekty (blesky) rozsvítí i pokémony
+    if (pxArena.light){
+      const L = pxArena.light(now / 1000);
+      const f = L > 0 ? `brightness(${(1 + L * 0.9).toFixed(2)})` : '';
+      mons.forEach(b => { const a = b.querySelector('.anim'); if (a.style.filter !== f) a.style.filter = f; });
+    }
+  }
+  camX += (targetX - camX) * 0.055;
+  camY += (targetY - camY) * 0.055;
+
+  arenaBgs.forEach(el => {
+    const depth = Number(el.dataset.depth);
+    el.style.transform = `translate(${camX * depth}px, ${camY * depth * 0.55}px)`;
+  });
+
+  // Whole "battle world" moves together with camera
+  const worldX = camX * 18;
+  const worldY = camY * 10;
+  world.style.transform = `translate(${worldX}px, ${worldY}px)`;
+
+  // Gentle idle breathing / bobbing, but still moving WITH the camera
+  const bob = bobEnabled ? 1 : 0;
+  // v pixelové aréně se houpe po celých pixelech arény (retro "krokové" houpání)
+  const pxs = pxArena ? arenaPixelSize() : 0;
+  const pBob = pxArena ? Math.round(Math.sin(t * 1.65)) * pxs * bob : Math.sin(t * 1.65) * 2.2 * bob;
+  const eBob = pxArena ? Math.round(Math.sin(t * 1.75 + 0.8)) * pxs * bob : Math.sin(t * 1.75 + 0.8) * 2.0 * bob;
+
+  document.getElementById('playerMon').style.transform = `translate(0px, ${pBob}px)`;
+  document.getElementById('enemyMon').style.transform  = `translate(0px, ${eBob}px)`;
+
+  sp.style.transform = `scale(${1 + Math.sin(t * 1.65) * 0.01 * bob})`;
+  se.style.transform = `scale(${1 + Math.sin(t * 1.75 + 0.8) * 0.01 * bob})`;
+
+  requestAnimationFrame(animate);
+}
+animate();
+</script>
+</body>
+</html>
