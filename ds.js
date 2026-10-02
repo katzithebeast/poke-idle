@@ -1,7 +1,7 @@
 /* =====================================================================
    DS rozložení (Galaxy Z Fold): hra v kabátku Nintenda DSi
    ---------------------------------------------------------------------
-   assets/ds_skin.png (2176 × 1812 = vnitřní displej Foldu) se roztáhne přes
+   assets/ds_skin.jpg (2176 × 1812 = vnitřní displej Foldu) se roztáhne přes
    celou obrazovku. Horní displej = souboj, spodní = info a menu, bezely
    (rámeček konzole) ukazují kde jsi a nápovědu ovládání.
    Tlačítka konzole: D-pad posouvá výběr po všem, co je zrovna vidět (i v oknech),
@@ -148,7 +148,7 @@ function hintFor(L){
   if (L === huntHud) return `${K('A')} hodit ball · nebo ťukni na horní displej`;
   if (L === bossHud) return `${K('A')} útok – zastav ukazatel uprostřed`;
   if (L !== dsPanel) return `${K('✚')} výběr · ${K('A')} potvrdit · ${K('B')} zpět`;
-  return `${K('✚')} výběr ${K('A')} ok ${K('X')} tým ${K('Y')} obchod ${K('START')} menu ${K('SELECT')} auto`;
+  return `${K('✚')} ${K('A')} ok ${K('X')} tým ${K('Y')} obchod ${K('START')} menu ${K('SELECT')} auto`;
 }
 dsPanel.addEventListener('click', (e) => {
   const t = e.target.closest('[data-act], #dspBoss');
@@ -189,17 +189,27 @@ function ensureFocus(){
   const list = focusables(L);
   if (L !== focusLayer || !focused || !list.includes(focused)){
     focusLayer = L;
-    setFocus(list.find(el => el.matches('.primary, #throwBtn, #bossAttack, .dm-tab.active')) || list[0] || null);
+    setFocus(list.find(el => el.matches('.primary, #throwBtn, #bossAttack, .dex-card, .dm-tab.active')) || list[0] || null);
   }
   return list;
 }
-function moveFocus(dir){
-  const list = ensureFocus();
-  if (!focused) return;
-  const a = focused.getBoundingClientRect(), ax = a.left + a.width / 2, ay = a.top + a.height / 2;
+// posuvný kontejner, ve kterém prvek leží (mřížka deníku, seznam v obchodě…)
+function scrollParent(el){
+  for (let p = el.parentElement; p && p !== document.body; p = p.parentElement){
+    if (/(auto|scroll)/.test(getComputedStyle(p).overflowY) && p.scrollHeight > p.clientHeight + 2) return p;
+  }
+  return null;
+}
+function inView(el, box){
+  const r = el.getBoundingClientRect(), c = box.getBoundingClientRect();
+  return r.bottom > c.top + 4 && r.top < c.bottom - 4;
+}
+// nejbližší prvek ve směru (hlavní osa + 2,2× boční odchylka)
+function pickDir(list, from, dir){
+  const a = from.getBoundingClientRect(), ax = a.left + a.width / 2, ay = a.top + a.height / 2;
   let best = null, bestScore = Infinity;
   for (const el of list){
-    if (el === focused) continue;
+    if (el === from) continue;
     const r = el.getBoundingClientRect(), dx = r.left + r.width / 2 - ax, dy = r.top + r.height / 2 - ay;
     const main = dir === 'left' ? -dx : dir === 'right' ? dx : dir === 'up' ? -dy : dy;
     const side = dir === 'left' || dir === 'right' ? Math.abs(dy) : Math.abs(dx);
@@ -207,6 +217,22 @@ function moveFocus(dir){
     const score = main + side * 2.2;
     if (score < bestScore){ bestScore = score; best = el; }
   }
+  return best;
+}
+/* D-pad: pohyb zůstává uvnitř posuvné části (mřížka se posouvá s výběrem);
+   ven (na lištu nahoře, záložky…) až když v tom směru uvnitř nic není.
+   Když mřížku posuneš prstem a výběr zmizí z dohledu, první stisk ho vrátí
+   na pokémona, kterého právě vidíš. */
+function moveFocus(dir){
+  const list = ensureFocus();
+  if (!focused) return;
+  const sp = scrollParent(focused);
+  if (sp && !inView(focused, sp)){
+    const vis = list.filter(el => sp.contains(el) && inView(el, sp));
+    if (vis.length){ setFocus(vis[0]); return; }
+  }
+  let best = sp ? pickDir(list.filter(el => sp.contains(el)), focused, dir) : null;
+  if (!best) best = pickDir(sp ? list.filter(el => !sp.contains(el)) : list, focused, dir);
   if (best) setFocus(best);
   else beep(150, 0.04, 0.02, 'triangle');
 }
