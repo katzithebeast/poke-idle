@@ -65,3 +65,10 @@ JAVA_HOME=/opt/homebrew/opt/openjdk@21 npm run apk
 APK: `app/android/app/build/outputs/apk/debug/app-debug.apk`. Hra se do APK kopíruje při každém
 `npm run apk` (skript `build-www.mjs`), takže po změně stačí build pustit znovu.
 Sprity pokémonů se stahují z GitHubu (PokeAPI) – APK potřebuje internet, stažené zůstanou v cache.
+
+## Samoaktualizace (APK ← GitHub Pages)
+APK načítá hru z https://katzithebeast.github.io/poke-idle/ (`app/capacitor.config.json` → `server.url`).
+Service worker (`sw.js`) uloží celou hru i stažené sprity do telefonu → funguje offline a nová verze
+se stáhne sama při dalším spuštění. Nahrání nové verze: `./deploy.sh` (zapíše `version.js`, commit, push).
+Verze je vidět v Nastavení → Verze hry (klik = znovu načíst). Nové APK je potřeba jen při změně
+nativní části (ikona, oprávnění, Capacitor).
