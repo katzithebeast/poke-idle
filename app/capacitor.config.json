@@ -2,5 +2,12 @@
   "appId": "cz.gevlyn.pokeidle",
   "appName": "Poké Idle",
   "webDir": "www",
-  "android": { "backgroundColor": "#000000" }
+  "android": {
+    "backgroundColor": "#000000"
+  },
+  "server": {
+    "url": "https://katzithebeast.github.io/poke-idle/",
+    "errorPath": "offline.html",
+    "androidScheme": "https"
+  }
 }
