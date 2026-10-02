@@ -276,6 +276,13 @@ function placePlates(){
     const p = visibleTop(box), k = parseFloat(cs.getPropertyValue('--pz')) || parseFloat(cs.getPropertyValue('--zoom')) || 1;
     const sr = shell.getBoundingClientRect();   // v DS rozložení = horní displej
     const w = plate.offsetWidth * k / 2 + 6, h = plate.offsetHeight * k + 8;
+    if (document.body.classList.contains('ds')){
+      // DS: jako v Black/White – soupeř vlevo nahoře, ty vpravo dole (cedulky nepřekryjí pokémony)
+      const m = 5 * k;
+      if (box === enemyBox){ plate.style.left = sr.left + m + w - 6 + 'px'; plate.style.top = sr.top + m + h - 8 + 'px'; }
+      else { plate.style.left = sr.right - m - w + 6 + 'px'; plate.style.top = sr.bottom - m + 'px'; }
+      continue;
+    }
     plate.style.left = Math.min(sr.right - w, Math.max(sr.left + w, p.x)) + 'px';
     plate.style.top = Math.max(sr.top + h, p.y - 10 * k) + 'px';
   }

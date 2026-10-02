@@ -1337,7 +1337,7 @@ body.ds #dsTopBar, body.ds #dsHint{
   -webkit-font-smoothing:none;
 }
 body.ds #dsTopBar{ top:var(--oy); height:var(--ty); height:calc(var(--ty) - var(--oy)); }
-body.ds #dsHint{ top:calc(var(--by) + var(--bh)); height:var(--botbar); font-size:calc(var(--botbar) * .165); gap:2px; letter-spacing:0; }
+body.ds #dsHint{ top:calc(var(--by) + var(--bh)); height:var(--botbar); font-size:calc(var(--tw) / 52); gap:2px; letter-spacing:0; }
 #dsHint kbd{ font:inherit; color:#fff; background:#3a3a46; padding:.15em .4em .05em; margin:0 .15em; box-shadow:0 2px 0 #000; }
 
 /* spodní displej */
@@ -1409,16 +1409,165 @@ body.ds .pop{
   width:calc(var(--bw) / var(--dsk)); height:calc(var(--bh) / var(--dsk));
 }
 
-/* okna (Tým, Obchod, Deník, ruleta…) v pásu mezi D-padem a tlačítky; kabátek zůstane vidět */
-body.ds .dm, body.ds .journal, body.ds .case, body.ds .reveal{ left:var(--mx); right:auto; width:var(--mw); top:var(--oy); bottom:auto; height:calc(var(--by) + var(--bh) - var(--oy)); }
-body.ds.modal-open #dsTopBar{ opacity:0; }
-body.ds .dm-box, body.ds .journal-box{ width:calc((var(--mw) - 10px) / var(--zoom)); max-height:calc((var(--by) + var(--bh) - var(--oy) - 10px) / var(--zoom)); }
-body.ds .journal-box{ height:calc((var(--by) + var(--bh) - var(--oy) - 10px) / var(--zoom)); }
-body.ds .team-wrap{ flex-direction:column; overflow-y:auto; }
-body.ds .team-wrap > .dm-body{ overflow:visible; flex:none; }
-body.ds .side-detail{ width:auto; overflow:visible; box-shadow:inset 0 3px 0 var(--w-line); }
-body.ds .detail-box{ grid-template-columns:1fr; }
-body.ds .case-box, body.ds .reveal-card{ zoom:var(--zoom); max-width:calc((var(--mw) - 10px) / var(--zoom)); }
+/* ---- okna ve stylu DS: menu na spodním displeji, detail na horním ----
+   Okno = spodní displej (zoom --dsk, navrženo na 440 × 330). Detailní panel (Tým, deník)
+   je position:fixed na horním displeji – souřadnice dělené zoomem předka. */
+body.ds .dm, body.ds .journal{
+  left:var(--bx); top:var(--by); width:var(--bw); height:var(--bh); right:auto; bottom:auto;
+  background:none; backdrop-filter:none; align-items:stretch; justify-content:stretch;
+}
+body.ds .dm-box, body.ds .journal-box{
+  zoom:var(--dsk);
+  width:calc(var(--bw) / var(--dsk)); height:calc(var(--bh) / var(--dsk));
+  max-height:none; min-height:0; box-shadow:none; filter:none;
+}
+body.ds .dm-head{ padding:7px 10px 6px; gap:10px; flex-wrap:nowrap; }
+body.ds .dm-title{ font-size:15px; }
+body.ds .dm-head .dm-sub, body.ds .dm-coins{ font-size:11px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+body.ds .dm-coins img.coin{ width:13px; height:13px; }
+body.ds .dm-close{ padding:4px 6px; font-size:12px; }
+body.ds .dm-tabs{ gap:12px; padding:5px 10px 0; overflow-x:auto; scrollbar-width:none; }
+body.ds .dm-tab{ font-size:9px; padding:4px 0 6px; white-space:nowrap; }
+body.ds .dm-body{ padding:8px 10px 10px; }
+body.ds .dm-grid{ grid-template-columns:repeat(auto-fill, minmax(128px, 1fr)); gap:8px; }
+body.ds .dm-foot{ display:none; }
+body.ds .dm-section{ font-size:9px; }
+body.ds .btn{ padding:6px 8px 5px; font-size:9px; }
+
+/* Obchod kompaktně */
+body.ds .ball-card .ball-show{ height:62px; }
+body.ds .ball-card .ball-show img{ width:40px; height:40px; margin-top:8px; }
+body.ds .ball-card .ball-show::before{ width:180px; height:180px; margin:-90px 0 0 -90px; }
+body.ds .ball-card .ball-show::after{ display:none; }
+body.ds .ball-card .ball-tag{ font-size:8px; top:4px; left:5px; }
+body.ds .bc-body{ padding:7px 8px 8px; gap:5px; }
+body.ds .bc-name{ font-size:10px; }
+body.ds .bc-price{ font-size:9px; }
+body.ds .ball-card .odds{ display:none; }
+body.ds .bc-owned{ font-size:10px; }
+body.ds .bc-actions{ gap:5px; }
+body.ds .item-card{ padding:7px 8px; gap:7px; }
+body.ds .item-card > img{ width:26px; height:26px; }
+body.ds .ic-desc{ font-size:10px; }
+
+/* dlaždice pokémonů kompaktně */
+body.ds .mon-tile{ padding:6px 5px 7px; gap:2px; }
+body.ds .mon-tile img{ width:56px; height:56px; margin:-4px 0 -6px; }
+body.ds .mon-tile .mt-name{ font-size:9px; }
+body.ds .mon-tile .mt-sub{ font-size:10px; }
+body.ds .mon-tile .badge{ font-size:7px; top:4px; left:5px; }
+body.ds .mon-tile.empty{ min-height:84px; font-size:10px; }
+body.ds .team-slots{ grid-template-columns:repeat(3, 1fr); gap:6px; }
+body.ds .box-grid{ grid-template-columns:repeat(auto-fill, minmax(76px, 1fr)); gap:6px; }
+body.ds .box-grid .mon-tile img{ width:48px; height:48px; }
+body.ds .team-wrap{ flex-direction:column; }
+body.ds .team-wrap > .dm-body{ flex:1 1 auto; overflow-y:auto; gap:8px; }
+
+/* Tým: detail vybraného pokémona na horním displeji (2 sloupce) */
+body.ds .side-detail{
+  position:fixed; z-index:33; box-sizing:border-box;
+  left:calc(var(--tx) / var(--dsk)); top:calc(var(--ty) / var(--dsk));
+  width:calc(var(--tw) / var(--dsk)); height:calc(var(--th) / var(--dsk));
+  display:grid; grid-template-columns:160px 1fr; grid-auto-flow:row dense; column-gap:12px; row-gap:4px; align-content:start;
+  padding:10px 12px; overflow-y:auto;
+  background:var(--w-bg); box-shadow:none;
+}
+body.ds .side-detail > *{ grid-column:2; }
+body.ds .side-detail > .side-stage, body.ds .side-detail > .sd-name, body.ds .side-detail > .dm-sub,
+body.ds .side-detail > .sd-types, body.ds .side-detail > .sd-actions{ grid-column:1; }
+body.ds .side-stage{ height:104px; }
+body.ds .side-stage img{ height:96px; margin-bottom:4px; }
+body.ds .sd-name{ font-size:11px; margin-top:6px; gap:4px; }
+body.ds .side-detail .dm-sub{ font-size:10px; }
+body.ds .sd-types{ margin-top:4px; gap:4px; }
+body.ds .sd-actions{ flex-direction:column; gap:5px; margin-top:8px; }
+body.ds .side-detail .dm-section{ margin-top:6px !important; }
+body.ds .md{ gap:5px; margin-top:0; }
+body.ds .md-line{ font-size:10px; gap:5px; }
+body.ds .md-line .k{ font-size:8px; width:40px; }
+body.ds .md-line .v{ font-size:9px; min-width:44px; }
+body.ds .md-status{ font-size:10px; }
+body.ds .sd-items{ gap:5px; margin-top:6px; }
+body.ds .evo{ gap:4px; }
+body.ds .evo-row{ padding:3px 5px; gap:6px; }
+body.ds .evo-row img{ width:32px; height:32px; margin:-4px 0; }
+body.ds .evo-row .en{ font-size:9px; }
+body.ds .evo-row .er, body.ds .evo-row .ep{ font-size:9px; }
+body.ds .dm .type, body.ds .detail-box .type{ font-size:8px; padding:3px 5px 2px; }
+
+/* Deník: mřížka dole */
+body.ds .journal-head{ padding:6px 10px; gap:8px; flex-wrap:nowrap; border-width:2px; }
+body.ds .journal-head h2{ font-size:13px; gap:6px; }
+body.ds .journal-head h2::before{ width:10px; height:10px; }
+body.ds .journal-stats{ font-size:10px; min-width:0; }
+body.ds .progress{ height:5px; margin-top:4px; }
+body.ds .journal-head .pbtn{ font-size:10px; padding:4px 6px; }
+body.ds .journal-tools{ padding:5px 8px; gap:2px; border-width:2px; }
+body.ds .journal-tools .pbtn{ font-size:9px; padding:4px 5px 3px; margin:2px; }
+body.ds .journal-tools .sep{ height:14px; margin:0 3px; }
+body.ds .px-input{ width:96px; font-size:11px; padding:3px 5px; margin:2px 4px; }
+body.ds .px-check{ font-size:10px; gap:4px; }
+body.ds .px-check input{ width:10px; height:10px; }
+body.ds .dex-grid{ grid-template-columns:repeat(auto-fill, minmax(64px, 1fr)); gap:6px; padding:8px; }
+body.ds .dex-card{ padding:3px 2px 4px; margin:2px; }
+body.ds .dex-card img{ width:48px; height:48px; margin:6px auto 0; }
+body.ds .dex-card .num{ font-size:7px; top:3px; left:4px; }
+body.ds .dex-card .name{ font-size:9px; }
+body.ds .dex-card.locked .q{ top:22px; font-size:14px; }
+body.ds .journal-foot{ display:none; }
+
+/* detail druhu v deníku: horní displej = pokémon a evoluce, spodní = tvoje kopie */
+body.ds .detail-box{
+  width:100%; height:100%; max-height:none; box-sizing:border-box;
+  display:block; padding:8px 10px; box-shadow:none; overflow-y:auto;
+}
+body.ds .dd-left{
+  position:fixed; z-index:33; box-sizing:border-box;
+  left:calc(var(--tx) / var(--dsk)); top:calc(var(--ty) / var(--dsk));
+  width:calc(var(--tw) / var(--dsk)); height:calc(var(--th) / var(--dsk));
+  display:grid; grid-template-columns:170px 1fr; grid-auto-flow:row dense; column-gap:12px; align-content:start;
+  padding:10px 12px; overflow-y:auto; background:var(--w-bg);
+}
+body.ds .dd-left > *{ grid-column:2; }
+body.ds .dd-left > .dd-num, body.ds .dd-left > h3, body.ds .dd-left > .detail-stage,
+body.ds .dd-left > .detail-types, body.ds .dd-left > .dd-toggle{ grid-column:1; }
+body.ds .dd-num{ font-size:8px; }
+body.ds .detail-box h3{ font-size:13px; margin:2px 0 0; }
+body.ds .detail-box .detail-stage{ height:106px; margin:6px 0; }
+body.ds .detail-box .detail-stage img{ height:96px; margin-bottom:6px; }
+body.ds .detail-box .detail-types{ margin-bottom:6px; gap:4px; min-height:0; }
+body.ds .dd-toggle{ gap:5px; margin:0; }
+body.ds .dd-info{ font-size:10px; margin-bottom:6px; line-height:1.4; }
+body.ds .dd-right{ padding-top:0; }
+body.ds .dd-copies span{ font-size:10px; }
+body.ds .dd-copy-stage{ height:64px; margin-top:4px; }
+body.ds .dd-copy-stage img{ height:88px; margin-bottom:-14px; }
+body.ds .dd-right .sd-name{ font-size:11px; margin-top:4px; }
+body.ds .dd-actions{ padding-top:8px; }
+body.ds .dd-actions .btn{ padding:8px; }
+body.ds .detail-x{ top:4px; right:4px; }
+
+/* ruleta a evoluce na horním displeji, výhra na spodním */
+body.ds .case{ left:var(--tx); top:var(--ty); width:var(--tw); height:var(--th); right:auto; bottom:auto; }
+body.ds .case-box{ zoom:var(--dsk); width:calc(var(--tw) / var(--dsk)); max-width:none; padding:8px; box-sizing:border-box; box-shadow:none; filter:none; }
+body.ds .case-title{ font-size:12px; margin-bottom:8px; }
+body.ds .case-actions{ margin-top:6px; min-height:24px; }
+body.ds .reveal{ left:var(--bx); top:var(--by); width:var(--bw); height:var(--bh); right:auto; bottom:auto; }
+body.ds .reveal-card{ zoom:var(--dsk); width:calc(var(--bw) / var(--dsk)); height:calc(var(--bh) / var(--dsk)); max-width:none; box-sizing:border-box; padding:6px 10px; overflow-y:auto; filter:none; box-shadow:none; animation:none; }
+body.ds .reveal-stage{ height:96px; margin:4px 0; }
+body.ds .reveal-stage img{ height:88px; margin-bottom:4px; }
+body.ds .reveal-name{ font-size:14px; }
+body.ds .reveal-stars{ transform:none; margin-top:2px; }
+body.ds .reveal-types{ margin:4px 0; }
+body.ds .reveal-badge{ font-size:9px; padding:3px 6px; }
+body.ds .reveal-info{ font-size:10px; margin:4px 0 0; }
+body.ds .reveal-card .case-actions .pbtn{ font-size:10px; padding:5px 7px; }
+body.ds .evo-overlay{ left:var(--tx); top:var(--ty); width:var(--tw); height:var(--th); right:auto; bottom:auto; gap:6px; }
+body.ds .evo-stage{ zoom:1; width:calc(var(--th) * .66); height:calc(var(--th) * .66); }
+body.ds .evo-text, body.ds .evo-overlay .btn{ zoom:var(--pz); }
+
+/* čísla poškození, mince a hlášky nad pokémony v měřítku horního displeje */
+body.ds .coin-float{ zoom:var(--pz); }
 </style>
 </head>
 <body>
@@ -1469,6 +1618,7 @@ body.ds .case-box, body.ds .reveal-card{ zoom:var(--zoom); max-width:calc((var(-
   <button class="set-row" id="bobBtn"></button>
   <button class="set-row" id="parallaxBtn"></button>
   <button class="set-row" id="idleUiBtn" title="Co se stane s ovládáním, když chvíli nic neděláš"></button>
+  <button class="set-row" id="versionBtn" title="Klikni = znovu načíst a zkontrolovat aktualizaci"></button>
   <button class="set-row" id="devBtn" title="Samostatné testovací uložení s nástroji – normální hry se nedotkne"></button>
   <div id="devTools" hidden>
     <div class="pop-title">Dev nástroje (testovací uložení)</div>
@@ -1692,6 +1842,7 @@ body.ds .case-box, body.ds .reveal-card{ zoom:var(--zoom); max-width:calc((var(-
   <div class="label" id="spriteInfo"></div>
 </div>
 
+<script src="version.js"></script>
 <script src="vendor/gifuct.js"></script>
 <script src="pixel_arenas.js"></script>
 <script src="pokemon_data.js"></script>

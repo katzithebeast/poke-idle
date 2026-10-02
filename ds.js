@@ -101,7 +101,7 @@ function layoutDs(){
   px('--topbar', SCREEN_TOP.y * s); px('--botbar', (SKIN.h - SCREEN_BOT.y - SCREEN_BOT.h) * s);
   const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
   R.setProperty('--dsk', clamp(SCREEN_BOT.w * s / 440, 0.4, 2).toFixed(3));        // spodní displej je navržený na 440 px
-  R.setProperty('--pz', clamp(SCREEN_TOP.w * s / 560, 0.45, 1.4).toFixed(3));      // cedulky a hlášky na horním displeji
+  R.setProperty('--pz', clamp(SCREEN_TOP.w * s / 640, 0.4, 1.3).toFixed(3));      // cedulky a hlášky na horním displeji
   R.setProperty('--zoom', clamp(MIDDLE.w * s / 700, 0.55, 1.3).toFixed(3));        // okna v pásu mezi tlačítky
 }
 let dsResizing = false;

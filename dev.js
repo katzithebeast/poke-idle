@@ -84,3 +84,15 @@ document.getElementById('devTools').addEventListener('click', (e) => {
   if (b && DEV_MODE) DEV_ACTIONS[b.dataset.dev]();
 });
 document.getElementById('devMonId').addEventListener('keydown', (e) => { if (e.key === 'Enter') DEV_ACTIONS.add(); });
+
+/* ---------- Verze a aktualizace (sw.js) ---------- */
+const versionBtn = document.getElementById('versionBtn');
+setRow(versionBtn, 'Verze hry', typeof GAME_VERSION === 'string' ? GAME_VERSION : '?');
+versionBtn.addEventListener('click', () => { toast('Kontroluji aktualizaci…'); setTimeout(() => location.reload(), 400); });
+try {
+  const last = localStorage.getItem('pokeIdle:version');
+  if (last && typeof GAME_VERSION === 'string' && last !== GAME_VERSION) setTimeout(() => toast(`Hra aktualizována: ${GAME_VERSION}`, true), 1500);
+  if (typeof GAME_VERSION === 'string') localStorage.setItem('pokeIdle:version', GAME_VERSION);
+} catch {}
+// offline + samoaktualizace přes service worker (jen na http/https, ne při otevření ze souboru)
+if ('serviceWorker' in navigator && location.protocol.startsWith('http')) navigator.serviceWorker.register('./sw.js').catch(() => {});
