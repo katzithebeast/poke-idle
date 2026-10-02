@@ -95,4 +95,4 @@ try {
   if (typeof GAME_VERSION === 'string') localStorage.setItem('pokeIdle:version', GAME_VERSION);
 } catch {}
 // offline + samoaktualizace přes service worker (jen na http/https, ne při otevření ze souboru)
-if ('serviceWorker' in navigator && location.protocol.startsWith('http')) navigator.serviceWorker.register('./sw.js').catch(() => {});
+if ('serviceWorker' in navigator && location.protocol.startsWith('http')) navigator.serviceWorker.register('./sw.js', { updateViaCache: 'none' }).catch(() => {});
