@@ -1790,6 +1790,12 @@ body.ds .pad-slot{ display:block; }
       </div>
       <button class="pbtn" id="journalClose" title="Zavřít (Esc)">X</button>
     </div>
+    <div class="journal-tabs">
+      <button class="active" data-jtab="dex">Deník</button>
+      <button data-jtab="quests">Úkoly</button>
+      <button data-jtab="ach">Úspěchy</button>
+    </div>
+    <div class="journal-panel" id="journalPanel" hidden></div>
     <div class="journal-tools">
       <button class="pbtn active" data-mode="normal">Normální</button>
       <button class="pbtn shiny" data-mode="shiny"><i class="pstar"></i>Shiny</button>
@@ -3171,6 +3177,7 @@ function onEnemyDefeated(box){
   rewardDefeat(box);   // mince, XP, výhra v aréně (battle.js)
   clearTimeout(box._spawnTimer);
   if (battle.enemy.track) return trackDefeated();   // stopa z návnady (manual.js)
+  if (battle.enemy.trainer) return trainerNext();    // pokémon trenéra (trainers.js)
   box._spawnTimer = setTimeout(() => {
     if (monState.get(box) === 'faint') spawnEnemy();
   }, 1500);
@@ -3447,6 +3454,8 @@ animate();
 <script src="offline.js?v=1317f2f1"></script>
 <script src="fx.js?v=1317f2f1"></script>
 <script src="manual.js?v=1317f2f1"></script>
+<script src="quests.js"></script>
+<script src="trainers.js"></script>
 <script src="dev.js?v=1317f2f1"></script>
 <script src="ds.js?v=1317f2f1"></script>
 </body>

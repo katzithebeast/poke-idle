@@ -32,6 +32,7 @@ function applyEvolution(m, e, force = false){
   if (!force && e.kind === 'trade'){ useItem('cable'); if (e.param) useItem(e.param); }
   const before = monStats(m).hp;
   m.id = e.to;
+  gameEvent('evolve');
   const after = monStats(m).hp;
   m.hp = m.fainted ? m.hp : Math.min(after, m.hp + (after - before));
   const d = dex[e.to] || (dex[e.to] = { count: 0 });

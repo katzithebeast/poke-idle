@@ -90,6 +90,7 @@ dsPanel.innerHTML = `
   </div>
   <button class="dsp-boss" id="dspBoss" hidden></button>
   <button class="dsp-boss dsp-fight" id="dspFight" hidden></button>
+  <button class="dsp-boss dsp-trainer" id="dspTrainer" hidden></button>
   <div class="dsp-tiles">
     <button class="dsp-tile" data-act="team"><span>Tým</span><small>X</small></button>
     <button class="dsp-tile" data-act="dex"><span>Deník</span></button>
@@ -182,10 +183,11 @@ function hintFor(L){
   return `${K('✚')} ${K('A')} ok ${K('X')} tým ${K('Y')} obchod ${K('START')} menu ${K('SELECT')} auto`;
 }
 dsPanel.addEventListener('click', (e) => {
-  const t = e.target.closest('[data-act], #dspBoss, #dspFight');
+  const t = e.target.closest('[data-act], #dspBoss, #dspFight, #dspTrainer');
   if (!t) return;
   if (t.id === 'dspBoss') return startBoss();
   if (t.id === 'dspFight') return openFight();
+  if (t.id === 'dspTrainer') return startTrainer();
   ({
     team: openTeam, dex: openJournal, shop: () => openShop(),
     arena: () => arenaBtn.click(), settings: () => document.getElementById('settingsBtn').click(),

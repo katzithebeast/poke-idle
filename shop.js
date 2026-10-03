@@ -473,6 +473,7 @@ async function openBall(type){
   if (caseBusy || !shop.lures[type]) return;
   caseBusy = true;
   shop.lures[type]--;
+  gameEvent('lure');
   const res = rollMon(type);
   const rec = { uid: shop.nextUid++, id: res.id, shiny: res.shiny, ball: type, stars: 1 + rollRarity(SHOP_BALLS[type].stars) };
   shop.hunts.push(rec);
@@ -838,6 +839,7 @@ async function throwBall(){
     sparkleAt(ball, 12);
     const news = addToDex(h.id, h.shiny);
     const mon = addMon({ id: h.id, shiny: h.shiny, stars: h.stars || 1, lvl: h.lvl });
+    gameEvent('catch', { id: h.id, shiny: h.shiny });
     if (h.track) shop.hunts = shop.hunts.filter(x => x.uid !== h.track);
     saveShop();
     toast(`Gotcha! ${NAMES[h.id - 1]} (${mon.stars}★, Lv ${mon.lvl}) je chycen${news === 'new' ? ' – nový v deníku!' : news === 'shiny' ? ' – nový shiny v deníku!' : '!'}`, h.shiny);

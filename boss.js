@@ -145,6 +145,7 @@ async function bossWon(){
   if (p){ giveXp(p, Math.round(b.lvl * 60 * (1 + 0.1 * upg('xp')))); p.friend = (p.friend || 0) + 20; checkEvoReady(p); }
   progress.bosses[b.arena] = true;
   giveLegendTrack(b.arena);
+  gameEvent('boss');
   saveShop(); saveParty(); saveProgress();
   updateCoins();
   jingle(4);

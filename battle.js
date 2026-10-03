@@ -101,7 +101,7 @@ updateAutoBtn();
 
 function canFight(){
   const p = activeMon();
-  return autoOn && !battle.enemy.track && !hunt && !bossFight && !document.hidden && p && p.hp > 0 && !p.fainted && battle.enemy.hp > 0
+  return autoOn && !battle.enemy.track && !battle.enemy.trainer && !hunt && !bossFight && !document.hidden && p && p.hp > 0 && !p.fainted && battle.enemy.hp > 0
     && Number(playerBox.dataset.id) === p.id
     && monState.get(playerBox) === 'idle' && monState.get(enemyBox) === 'idle';
 }
@@ -202,7 +202,10 @@ function applyWin(e, live, mult = 1){
 }
 // odměna za poraženého soupeře na scéně (volá onEnemyDefeated v index.html)
 function rewardDefeat(box){
-  const { coins, ups } = applyWin(battle.enemy, true, autoOn ? 1 : MANUAL_BONUS);   // ruční (tahová) výhra = +50 %
+  const manualWin = !autoOn || !!battle.enemy.track || !!battle.enemy.trainer;
+  const { coins, ups } = applyWin(battle.enemy, true, manualWin ? MANUAL_BONUS : 1);   // ruční (tahová) výhra = +50 %
+  gameEvent('win', { manual: manualWin });
+  if (!battle.enemy.trainer) maybeChallenge();
   updateCoins();
   floatText(box, '+' + coins);
   const p = activeMon();
@@ -227,10 +230,10 @@ function setBar(el, p){
 function renderBattleHud(){
   const e = bossFight || battle.enemy, p = activeMon();
   if (e?.lvl){
-    const key = `${e.id}|${e.shiny}|${e.lvl}|${!!bossFight}`;
+    const key = `${e.id}|${e.shiny}|${e.lvl}|${!!bossFight}|${!!e.trainer}`;
     if (hud.shown.e !== key){
       hud.shown.e = key;
-      $('eiName').innerHTML = (bossFight ? '<span class="bi-boss">Pán arény</span>' : '') + (e.shiny ? STAR : '') + NAMES[e.id - 1];
+      $('eiName').innerHTML = (bossFight ? '<span class="bi-boss">Pán arény</span>' : e.trainer && battle.trainerCtx ? `<span class="bi-boss">${TRAINERS[battle.trainerCtx.t].name}</span>` : '') + (e.shiny ? STAR : '') + NAMES[e.id - 1];
       $('eiLv').textContent = 'Lv' + e.lvl;
       $('eiRar').style.background = RARITIES[monRarity(e.id)].color;
     }

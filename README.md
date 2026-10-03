@@ -80,3 +80,7 @@ nativní části (ikona, oprávnění, Capacitor).
 - **Návnady** (dřívější ruleta): padne **stopa** vzácného pokémona → Obchod → Stopy → Vyrazit → setkání v jeho aréně.
 - **Legendární** jen jako stopa po porážce Pána arény (každá aréna má svou legendu).
 - Shiny v divočině 1/512, v návnadách častěji. Stará verze s ruletou: tag `v1-gamba` / větev `zaloha-v1-gamba`.
+
+## Úkoly, úspěchy, Team Rocket
+- `quests.js` – denní úkoly (3 nové každý den) a úspěchy; odměny v Deníku → Úkoly / Úspěchy. `gameEvent()` sbírá statistiky.
+- `trainers.js` – po výhrách občas vyzve trenér Team Rocket (Jessie, James, Butch, Cassidy, Raketák) – ruční souboj s týmem 2–3 pokémonů, za výhru mince, návnada a předmět.

@@ -108,7 +108,7 @@ let fightOpen = false;
 const manualPanel = document.getElementById('manualPanel');
 
 // stopa (návnada / legenda) se bojuje vždy ručně, i když je zapnutý auto boj
-const manualActive = () => (!autoOn || !!battle.enemy?.track) && !hunt && !bossFight && !!activeMon() && !activeMon().fainted && activeMon().hp >= 1 && battle.enemy?.hp >= 1;
+const manualActive = () => (!autoOn || !!battle.enemy?.track || !!battle.enemy?.trainer) && !hunt && !bossFight && !!activeMon() && !activeMon().fainted && activeMon().hp >= 1 && battle.enemy?.hp >= 1;
 function syncFight(){
   if (!battle.enemy._k) battle.enemy._k = Date.now() + Math.random();   // nový soupeř = nové EP a stavy
   if (fightKey !== battle.enemy._k){ fightKey = battle.enemy._k; E.ep = 0; E.st = {}; nextEnemyMove = null; }
@@ -195,6 +195,7 @@ async function act(X, move){
   if (move.kind === 'guard'){ say(`${nameOf(X)} se kryje.`); return; }
   if (move.kind === 'attack'){ say(`${nameOf(X)} útočí!`); await hit(X, D, 1); return; }
   X.ep -= move.sp.cost;
+  if (isPlayer(X)) gameEvent('special');
   say(`${nameOf(X)} použil ${move.sp.name}!`);
   await move.sp.run(X, D);
 }
@@ -265,6 +266,7 @@ function closeFight(){ fightOpen = false; renderManual(); }
 function fleeFight(){
   if (turnBusy) return;
   if (battle.enemy.track){ toast('Utekl jsi. Stopa zůstává v Obchodě → Stopy.'); return leaveTrack(); }
+  if (battle.enemy.trainer) return leaveTrainer();
   toast(`Utekl jsi před ${NAMES[battle.enemy.id - 1]}.`);
   fightOpen = false;
   spawnEnemy();
@@ -290,7 +292,7 @@ const BTN_IMG = (() => {
   return c.toDataURL();
 })();
 function renderManual(){
-  const on = fightOpen && (manualActive() || turnBusy) && (!autoOn || !!battle.enemy?.track);
+  const on = fightOpen && (manualActive() || turnBusy) && (!autoOn || !!battle.enemy?.track || !!battle.enemy?.trainer);
   if (fightOpen && !on && !turnBusy) fightOpen = false;
   document.body.classList.toggle('manual', on);
   document.body.classList.toggle('manual-wait', !on && fightReady());
@@ -344,6 +346,7 @@ renderManual();
 const WILD_STARS = [60, 28, 9, 2.5, 0.5];
 function tryCatch(){
   if (turnBusy || !manualActive()) return;
+  if (battle.enemy.trainer) return toast('Pokémona jiného trenéra chytit nejde!');
   syncFight();
   const e = battle.enemy;
   e.stars ||= 1 + rollRarity(WILD_STARS);
