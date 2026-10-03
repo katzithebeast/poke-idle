@@ -2870,8 +2870,12 @@ function faint(box){
   setState(box, 'faint');
   const img = box.querySelector('.pokemon');
   const shadow = box.querySelector('.shadow');
-  box._faintAnims = [
-    // zajede dolů "do země" a zmizí – jako v klasických hrách
+  // rozpad na pixely odfouknuté větrem (fx.js); když nejde přečíst obraz, klasické zajetí do země
+  if (window.disintegrate && disintegrate(box)) box._faintAnims = [
+    img.animate([{ opacity: 1 }, { opacity: 0 }], { duration: 60, fill: 'forwards' }),
+    shadow.animate([{ opacity: 1 }, { opacity: 0 }], { duration: 500, fill: 'forwards' }),
+  ];
+  else box._faintAnims = [
     img.animate([
       { transform: 'translateY(0)', opacity: 1, clipPath: 'inset(0 0 0 0)' },
       { transform: 'translateY(60%)', opacity: 0, clipPath: 'inset(0 0 60% 0)' },
@@ -3181,8 +3185,9 @@ async function spawnEnemy(data = wildMon()){   // wildMon: divoký pokémon podl
   setMonSprite(box, data);
   setState(box, 'revive');
   if (data.shiny) toast(`Objevil se shiny ${NAMES[data.id - 1]}!`, true);
+  window.spawnGlow?.(box, data.shiny ? '#ffe066' : '#bfe4ff');   // zářivý kruh (fx.js)
   await box.querySelector('.anim').animate([
-    { opacity: 0, transform: 'translateY(-24px)' },
+    { opacity: 0, transform: 'translateY(-6px)' },
     { opacity: 1, transform: 'translateY(0)' },
   ], { duration: 450, easing: 'ease-out' }).finished;
   if (data.shiny) sparkle(box);
@@ -3197,6 +3202,7 @@ async function sendToBattle(data){
   saveBattle();
   setMonSprite(box, data);
   setState(box, 'revive');
+  window.spawnGlow?.(box, '#ffffff');
   await box.querySelector('.anim').animate([
     { opacity: 0, transform: 'scale(.6)' },
     { opacity: 1, transform: 'scale(1)' },
@@ -3439,6 +3445,7 @@ animate();
 <script src="evolve.js?v=f95860f8"></script>
 <script src="boss.js?v=f95860f8"></script>
 <script src="offline.js?v=f95860f8"></script>
+<script src="fx.js"></script>
 <script src="manual.js?v=f95860f8"></script>
 <script src="dev.js?v=f95860f8"></script>
 <script src="ds.js?v=f95860f8"></script>

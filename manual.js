@@ -316,7 +316,7 @@ function renderManual(){
     </div>
     <div class="mp-foot">
       <button class="mp-side" data-mp="flee" ${turnBusy ? 'disabled' : ''}>◂ Utéct</button>
-      <button class="mp-side mp-catch" data-mp="catch" ${turnBusy ? 'disabled' : ''}>◓ Chytit · ${Object.values(shop.balls).reduce((a, b) => a + b, 0)}</button>
+      <button class="mp-side mp-catch" data-mp="catch" ${turnBusy ? 'disabled' : ''}>◓ Chytit · SELECT · ${Object.values(shop.balls).reduce((a, b) => a + b, 0)}</button>
       <button class="mp-side" data-mp="menu" ${turnBusy ? 'disabled' : ''}>Menu · START ▸</button>
     </div>`;
 }

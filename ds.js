@@ -176,7 +176,7 @@ const K = k => `<kbd>${k}</kbd>`;
 function hintFor(L){
   if (evoRun) return `${K('B')} zrušit evoluci`;
   if (L === caseEl) return `${K('B')} přeskočit`;
-  if (L === huntHud) return `${K('A')} hodit · ${K('Y')} jiný ball · ${K('B')} zpět do boje`;
+  if (L === huntHud) return `${K('A')}/${K('SELECT')} hodit · ${K('Y')} jiný ball · ${K('B')} zpět do boje`;
   if (L === bossHud) return `${K('A')} útok – zastav ukazatel uprostřed`;
   if (L !== dsPanel) return `${K('✚')} výběr · ${K('A')} potvrdit · ${K('B')} zpět`;
   return `${K('✚')} ${K('A')} ok ${K('X')} tým ${K('Y')} obchod ${K('START')} menu ${K('SELECT')} auto`;
@@ -324,7 +324,13 @@ const DS_ACTIONS = {
   x: () => topLayer() === manualPanel ? takeTurn('special1') : teamEl.classList.contains('open') ? closeTeam() : openTeam(),
   y: () => topLayer() === huntHud ? cycleBall() : topLayer() === manualPanel ? takeTurn('special2') : shopEl.classList.contains('open') ? closeShop() : openShop(),
   start: () => topLayer() === manualPanel ? closeFight() : document.getElementById('settingsBtn').click(),
-  select: () => { autoBtn.click(); toast(autoOn ? 'Auto boj (idle)' : 'Ruční boj – soupeř čeká, zvol Bojovat'); },
+  // v boji SELECT = chytit, v chytání = hodit; jinak přepíná auto ↔ ruční
+  select: () => {
+    const L = topLayer();
+    if (L === manualPanel) return tryCatch();
+    if (L === huntHud) return throwBall();
+    autoBtn.click(); toast(autoOn ? 'Auto boj (idle)' : 'Ruční boj – soupeř čeká, zvol Bojovat');
+  },
   power: toggleFullscreen,
 };
 let repeatTimer = 0;
