@@ -88,7 +88,7 @@ let autoOn = true;
 try { autoOn = localStorage.getItem(AUTO_KEY) !== '0'; } catch {}
 const autoBtn = document.getElementById('autoBtn');
 function updateAutoBtn(){
-  setRow(autoBtn, 'Auto boj', autoOn ? 'zap' : 'vyp', autoOn);
+  setRow(autoBtn, 'Boj', autoOn ? 'auto (idle)' : 'ruční (tahový)', true);
   $('playerInfo').classList.toggle('paused', !autoOn);
 }
 autoBtn.addEventListener('click', () => {
@@ -201,7 +201,7 @@ function applyWin(e, live, mult = 1){
 }
 // odměna za poraženého soupeře na scéně (volá onEnemyDefeated v index.html)
 function rewardDefeat(box){
-  const { coins, ups } = applyWin(battle.enemy, true);
+  const { coins, ups } = applyWin(battle.enemy, true, autoOn ? 1 : MANUAL_BONUS);   // ruční (tahová) výhra = +50 %
   updateCoins();
   floatText(box, '+' + coins);
   const p = activeMon();

@@ -1612,6 +1612,48 @@ body.ds #shopBody > .dm-section{ display:none; }
 body.ds #shopBody > .dm-empty{ flex:1 0 100%; align-self:center; }
 body.ds #shopBody .bc-actions{ flex-direction:column; }
 body.ds #shopBody .mon-tile .actions{ flex-direction:column; width:100%; }
+
+/* ruční tahový souboj: akce jako v BW (2 × 2), energie, stavy */
+.manual-panel{
+  position:fixed; left:50%; bottom:16px; z-index:45; transform:translateX(-50%);
+  display:none; flex-direction:column; gap:7px; box-sizing:border-box;
+  width:min(440px, calc(100vw - 24px)); padding:10px 12px 12px;
+  color:var(--w-fg); background:var(--w-bg); box-shadow:var(--w-frame);
+  font-family:var(--font-body); -webkit-font-smoothing:none;
+  zoom:var(--zoom, 1);
+}
+body.manual .manual-panel{ display:flex; }
+body.manual .nav{ bottom:auto; top:12px; }
+body.ds .manual-panel{
+  zoom:var(--dsk); transform:none; box-shadow:none;
+  left:calc(var(--bx) / var(--dsk)); top:calc(var(--by) / var(--dsk)); bottom:auto;
+  width:calc(var(--bw) / var(--dsk)); height:calc(var(--bh) / var(--dsk));
+}
+body.ds.manual #dsPanel{ visibility:hidden; }
+.mp-msg{ font:14px var(--font-body); min-height:36px; padding:6px 8px; background:var(--w-card); box-shadow:var(--w-card-frame); line-height:1.3; }
+.mp-row{ display:flex; align-items:center; gap:6px; font-size:11px; flex-wrap:wrap; }
+.mp-who{ font:700 11px var(--font-title); }
+.mp-ep{ display:flex; gap:2px; }
+.mp-ep i{ width:9px; height:7px; background:var(--w-track); }
+.mp-ep i.on{ background:#5ab0ff; box-shadow:inset 0 -2px 0 rgba(0,0,0,.25); }
+.mp-epn{ font:700 10px var(--font-title); color:#5ab0ff; }
+.mp-st{ font:700 8px var(--font-title); text-transform:uppercase; padding:2px 4px 1px; }
+.mp-st.bad{ background:#7a2430; color:#ffd0d0; }
+.mp-st.good{ background:#2a5a3a; color:#d0ffd8; }
+.mp-none{ color:var(--w-faint); font-size:10px; }
+.mp-vs{ color:var(--w-muted); margin-left:6px; }
+.mp-grid{ flex:1; min-height:0; display:grid; grid-template-columns:1fr 1fr; gap:7px; }
+.mp-btn{
+  all:unset; cursor:pointer; box-sizing:border-box; position:relative;
+  display:flex; flex-direction:column; justify-content:center; gap:3px; padding:8px 10px;
+  background:var(--w-card); box-shadow:var(--w-card-frame), inset 4px 0 0 var(--mc, #888);
+}
+.mp-btn b{ font:700 12px var(--font-title); }
+.mp-btn small{ font-size:10px; color:var(--w-muted); }
+.mp-btn i{ position:absolute; top:6px; right:7px; font:700 10px var(--font-title); font-style:normal; color:var(--w-faint); }
+.mp-btn.atk{ --mc:#e8603a; } .mp-btn.sp{ --mc:#5ab0ff; } .mp-btn.grd{ --mc:#7ae08a; }
+.mp-btn:hover:not(:disabled){ background:var(--w-card-h); }
+.mp-btn:disabled{ opacity:.4; cursor:default; }
 </style>
 </head>
 <body>
@@ -1813,7 +1855,7 @@ body.ds #shopBody .mon-tile .actions{ flex-direction:column; width:100%; }
   <div class="bi-row"><span class="bi-name" id="piName"></span><span id="piStars"></span><span class="bi-lv" id="piLv"></span></div>
   <div class="bi-hp"><b>HP</b><div class="hpbar"><i id="piHp"></i></div></div>
   <div class="xpbar"><i id="piXp"></i></div>
-  <div class="bi-row bi-sub"><span class="bi-paused" id="piPaused">auto boj vypnutý</span><span class="bi-nums" id="piNums"></span></div>
+  <div class="bi-row bi-sub"><span class="bi-paused" id="piPaused">ruční boj</span><span class="bi-nums" id="piNums"></span></div>
   <button class="pbtn small red bi-faint" id="piTeamBtn">Omdlel – vybrat dalšího</button>
 </div>
 
@@ -1854,6 +1896,9 @@ body.ds #shopBody .mon-tile .actions{ flex-direction:column; width:100%; }
     <div class="dm-foot"><span></span><button class="btn primary" id="awayOk">Pokračovat</button></div>
   </div>
 </div>
+
+<!-- ruční tahový souboj (manual.js) -->
+<div class="manual-panel" id="manualPanel"></div>
 
 <!-- evoluce (evolve.js) -->
 <div class="evo-overlay" id="evoOverlay">
@@ -3394,6 +3439,7 @@ animate();
 <script src="evolve.js"></script>
 <script src="boss.js"></script>
 <script src="offline.js"></script>
+<script src="manual.js"></script>
 <script src="dev.js"></script>
 <script src="ds.js"></script>
 </body>

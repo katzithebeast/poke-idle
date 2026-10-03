@@ -19,6 +19,7 @@ Stačí otevřít `index.html` v prohlížeči (potřebuje internet kvůli sprit
 - `vendor/` – knihovna gifuct-js a fonty uložené v projektu (hra nepotřebuje CDN, běží i v APK)
 - `app/` – Android obal (Capacitor) → APK
 - `dev.js` – vývojářský režim: samostatné testovací uložení (`pokeIdleDev.*`) a nástroje (mince, levely, evoluce, arény, boss, offline…)
+- `manual.js` – ruční tahový souboj: Útok / 2 speciály podle typu / Krytí, energie, stavy a kombinace (SELECT přepíná auto ↔ ruční)
 - `evolve.js` – evoluce s animací, předměty v Týmu (Lektvar, Oživení, Rare Candy) a spojování duplikátů na +1 ★
 
 ## Obchod a lov (experimentální)

@@ -145,7 +145,7 @@ function dsRender(){
   const boss = !bossFight && !hunt && bossAvailable() && BOSSES[arena];
   $('dspBoss').hidden = !boss;
   if (boss) $('dspBoss').innerHTML = `<b>${boss.title}</b> ${NAMES[boss.id - 1]} tě vyzývá · A`;
-  $('dspAuto').textContent = autoOn ? 'Auto: zap' : 'Auto: vyp';
+  $('dspAuto').textContent = autoOn ? 'Boj: auto' : 'Boj: ruční';
   // bezely: nahoře kde jsi, dole nápověda ovládání
   dsTopBar.textContent = bossFight ? `Pán arény · ${a.name}` : hunt ? `Lov · ${a.name}` : `${a.name} · Lv ${lv.join('–')}`;
   const L = topLayer();
@@ -168,7 +168,7 @@ dsPanel.addEventListener('click', (e) => {
   ({
     team: openTeam, dex: openJournal, shop: () => openShop(),
     arena: () => arenaBtn.click(), settings: () => document.getElementById('settingsBtn').click(),
-    auto: () => { autoBtn.click(); toast(autoOn ? 'Auto boj zapnutý' : 'Auto boj vypnutý'); },
+    auto: () => { autoBtn.click(); toast(autoOn ? 'Auto boj (idle)' : 'Ruční tahový boj – vyber akci'); },
   })[t.dataset.act]?.();
 });
 
@@ -178,6 +178,7 @@ function topLayer(){
   const order = ['#reveal.open', '#caseOverlay.open', '#dexDetail.open', '#journal.open', '#away.open', '#shop.open',
     '#team.open', '#settingsMenu.open', '#arenaMenu.open', '#huntHud.open', '#bossHud.open'];
   for (const sel of order){ const el = document.querySelector(sel); if (el) return el; }
+  if (document.body.classList.contains('manual')) return manualPanel;   // ruční souboj
   return dsPanel;
 }
 function focusables(L){
@@ -200,7 +201,7 @@ function ensureFocus(){
   const list = focusables(L);
   if (L !== focusLayer || !focused || !list.includes(focused)){
     focusLayer = L;
-    setFocus(list.find(el => el.matches('.primary, #throwBtn, #bossAttack, .dex-card, .dm-tab.active')) || list[0] || null);
+    setFocus(list.find(el => el.matches('.primary, #throwBtn, #bossAttack, .mp-btn.atk, .dex-card, .dm-tab.active')) || list[0] || null);
   }
   return list;
 }
@@ -265,6 +266,7 @@ function pressA(){
 function pressB(){
   if (evoRun){ evoRun.cancelled = true; return; }
   const L = topLayer();
+  if (L === manualPanel) return takeTurn('guard');
   if (L === dsPanel || L === huntHud || L === bossHud) return;
   if (L === caseEl){ document.getElementById('caseSkip')?.click(); return; }
   if (L === revealEl) return closeReveal();
@@ -284,10 +286,10 @@ function toggleFullscreen(){
 const DS_ACTIONS = {
   up: () => moveFocus('up'), down: () => moveFocus('down'), left: () => moveFocus('left'), right: () => moveFocus('right'),
   a: pressA, b: pressB,
-  x: () => teamEl.classList.contains('open') ? closeTeam() : openTeam(),
-  y: () => shopEl.classList.contains('open') ? closeShop() : openShop(),
+  x: () => topLayer() === manualPanel ? takeTurn('special1') : teamEl.classList.contains('open') ? closeTeam() : openTeam(),
+  y: () => topLayer() === manualPanel ? takeTurn('special2') : shopEl.classList.contains('open') ? closeShop() : openShop(),
   start: () => document.getElementById('settingsBtn').click(),
-  select: () => { autoBtn.click(); toast(autoOn ? 'Auto boj zapnutý' : 'Auto boj vypnutý'); },
+  select: () => { autoBtn.click(); toast(autoOn ? 'Auto boj (idle)' : 'Ruční tahový boj – vyber akci'); },
   power: toggleFullscreen,
 };
 let repeatTimer = 0;
