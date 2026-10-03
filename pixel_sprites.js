@@ -655,17 +655,52 @@ function pxBust(key){
    5 snímků 64 × 64 pod sebou: klid, nápřah, nápřah 2, hod, dohoz. Bitevní sprite je
    useknutý v pase – stojí v dolním rohu horního displeje jako v originálních hrách. */
 let RED_BACK = null;
+// FireRed sprite je useknutý v pase → domalujeme džíny a boty (stejná paleta), ať Red stojí na plošině
+const RED_H = 90;
+function redLegs(g){
+  const C = { o: '#000000', d: '#39397b', m: '#5a62bd', h: '#73a4c5', r: '#cd624a', R: '#ff735a', w: '#eeeeff', s: '#c5c5de' };
+  const px = (x, y, c) => { g.fillStyle = C[c]; g.fillRect(x, y, 1, 1); };
+  const span = (y, x0, x1, fill, hl) => { px(x0, y, 'o'); px(x1, y, 'o'); for (let x = x0 + 1; x < x1; x++) px(x, y, hl && x >= x1 - hl ? 'm' : fill); };
+  for (let y = 58; y < 70; y++) span(y, 23, 47, 'd', 4);                         // boky (většinou za batohem)
+  for (let y = 70; y < 83; y++){                                                   // nohavice
+    const k = Math.floor((y - 70) / 7);
+    span(y, 24 + k, 34, 'd', 2); span(y, 36, 46 - k, 'd', 3);
+    if (y % 5 === 2){ px(28 + k, y, 'm'); px(40, y, 'm'); }                         // záhyby
+  }
+  for (let x = 25; x < 34; x++) px(x, 70, 'o'); for (let x = 37; x < 45; x++) px(x, 70, 'o');   // spodní lem trička/batohu
+  for (let y = 83; y < 88; y++){                                                   // boty
+    span(y, 23, 34, y === 86 ? 'w' : 'r', y < 85 ? 2 : 0); span(y, 36, 47, y === 86 ? 'w' : 'r', y < 85 ? 3 : 0);
+    if (y === 83){ px(29, y, 'R'); px(41, y, 'R'); }
+  }
+  for (let x = 23; x <= 34; x++) px(x, 88, 'o'); for (let x = 36; x <= 47; x++) px(x, 88, 'o');
+}
+// spodní řádek useknutého spritu zakulatí (o 1 px zúží a orámuje černou)
+function redCloseCut(g, d){
+  const op = x => x >= 0 && x < 64 && d[(63 * 64 + x) * 4 + 3] > 127;
+  for (let x = 0; x < 64; x++){
+    if (!op(x)) continue;
+    const i = (63 * 64 + x) * 4, inner = op(x - 1) && op(x + 1);
+    g.fillStyle = inner ? `rgb(${d[i]},${d[i + 1]},${d[i + 2]})` : '#000'; g.fillRect(x, 64, 1, 1);
+    if (inner){ g.fillStyle = '#000'; g.fillRect(x, 65, 1, 1); }
+  }
+}
 const RED_BACK_READY = new Promise(res => {
   const img = new Image();
   img.onload = () => {
     try {
       const frames = [], data = [];
       for (let i = 0; i < 5; i++){
+        const src = document.createElement('canvas');
+        src.width = src.height = 64;
+        src.getContext('2d').drawImage(img, 0, -i * 64);
+        const d0 = src.getContext('2d').getImageData(0, 0, 64, 64).data;
         const c = document.createElement('canvas');
-        c.width = c.height = 64;
+        c.width = 64; c.height = RED_H;
         const g = c.getContext('2d');
-        g.drawImage(img, 0, -i * 64);
-        frames.push(c); data.push(g.getImageData(0, 0, 64, 64).data);
+        redLegs(g);
+        g.drawImage(src, 0, 0);
+        redCloseCut(g, d0);
+        frames.push(c); data.push(g.getImageData(0, 0, 64, RED_H).data);
       }
       RED_BACK = { frames, data };
     } catch {}
@@ -678,11 +713,11 @@ function redBackSprite(){
   if (!RED_BACK) return null;
   const order = [0, 0, 1, 2, 3, 4];
   const delays = [700, 700, 110, 130, 90, 260];
-  const empty = document.createElement('canvas');
-  empty.width = empty.height = 1;
+  const W = 64, H = RED_H, ground = H - 2;
+  RED_BACK.shadows ||= RED_BACK.data.map(d => projectShadow((x, y) => d[(y * W + x) * 4 + 3] > 127, W, H, ground));   // index.html
   return {
-    W: 64, H: 64, frames: order.map(i => RED_BACK.frames[i]), data: order.map(i => RED_BACK.data[i]), delays,
-    shadows: order.map(() => empty), idle: [0, 1], action: [2, 5], method: 'red', half: true,
+    W, H, frames: order.map(i => RED_BACK.frames[i]), data: order.map(i => RED_BACK.data[i]), delays,
+    shadows: order.map(i => RED_BACK.shadows[i]), idle: [0, 1], action: [2, 5], method: 'red', half: true,
     releaseMs: delays[2] + delays[3], release: [58, 26],
   };
 }

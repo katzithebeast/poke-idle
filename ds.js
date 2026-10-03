@@ -197,7 +197,7 @@ dsPanel.addEventListener('click', (e) => {
 /* ---------- Výběr D-padem (prostorová navigace) ---------- */
 const FOCUSABLE = 'button:not([disabled]), [data-sel], .dex-card, .evo-row.link, input, .arena-opt';
 function topLayer(){
-  const order = ['#reveal.open', '#caseOverlay.open', '#dexDetail.open', '#journal.open', '#away.open', '#shop.open',
+  const order = ['#reveal.open', '#caseOverlay.open', '#dsSheet.open', '#dexDetail.open', '#journal.open', '#away.open', '#shop.open',
     '#team.open', '#settingsMenu.open', '#arenaMenu.open', '#huntHud.open', '#bossHud.open'];
   for (const sel of order){ const el = document.querySelector(sel); if (el) return el; }
   if (document.body.classList.contains('manual')) return manualPanel;   // ruční souboj
@@ -216,6 +216,7 @@ function setFocus(el){
   focused = el;
   if (!el) return;
   el.classList.add('ds-focus');
+  if (el.matches('#team [data-sel]')) teamPreview(Number(el.dataset.sel));   // Tým: náhled nahoře (sheet.js)
   // obchod: posun po celých stránkách (3 karty), nikdy napůl viditelná karta
   el.scrollIntoView({ block: 'nearest', inline: 'nearest' });
 }
@@ -311,6 +312,7 @@ function pressB(){
   if (L === dsPanel || L === bossHud) return;
   if (L === caseEl){ document.getElementById('caseSkip')?.click(); return; }
   if (L === revealEl) return closeReveal();
+  if (L === dsSheet) return closeSheet();
   if (L === dexDetail) return closeDetail();
   if (L === journal) return closeJournal();
   if (L === awayEl) return awayEl.classList.remove('open');

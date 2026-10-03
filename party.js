@@ -237,6 +237,7 @@ function renderTeamDetail(){
     </div>
     <div class="dm-section" style="margin-top:20px">Evoluce</div>
     ${evoHtml(m.id, m)}`;
+  if (typeof sheet !== 'undefined' && sheet?.kind === 'team') renderSheet();   // DS karta (sheet.js)
 }
 // jednou za vteřinu jen HP lišty a odpočty (bez překreslení, ať neztratíš klik)
 function refreshTeam(){
@@ -256,15 +257,20 @@ function openTeam(){
   teamSel = party.active;
   teamEl.classList.add('open');
   renderTeam();
+  teamPreview(teamSel);                 // DS: vybraný pokémon nahoře (sheet.js)
 }
-function closeTeam(){ teamEl.classList.remove('open'); }
+function closeTeam(){
+  teamEl.classList.remove('open');
+  if (sheet?.kind === 'team') closeSheet();
+  if (!sheet) hideStage();
+}
 
 document.getElementById('teamBtn').addEventListener('click', openTeam);
 document.getElementById('teamClose').addEventListener('click', closeTeam);
 teamEl.addEventListener('pointerdown', (e) => { if (e.target === teamEl) closeTeam(); });
 teamEl.addEventListener('click', (e) => {
   const tile = e.target.closest('[data-sel]');
-  if (tile){ teamSel = Number(tile.dataset.sel); renderTeam(); return; }
+  if (tile){ teamSel = Number(tile.dataset.sel); renderTeam(); if (isDs()) openSheet('team'); return; }
   const b = e.target.closest('button');
   if (!b) return;
   if (b.dataset.send){ if (sendMon(Number(b.dataset.send))) closeTeam(); }
