@@ -17,7 +17,7 @@ const SKINS = {
   matte: { name: 'matný', file: 'assets/ds_skin_matte.jpg',
     top: { x: 665, y: 108, w: 847, h: 640 }, bot: { x: 665, y: 1056, w: 847, h: 635 } },
 };
-let skinKey = 'gunmetal';
+let skinKey = 'matte';   // výchozí matný
 try { const v = localStorage.getItem('pokeIdle.skin'); if (SKINS[v]) skinKey = v; } catch {}
 let SCREEN_TOP = SKINS[skinKey].top, SCREEN_BOT = SKINS[skinKey].bot;
 const MIDDLE = { x: 540, w: 1100 };   // pás mezi D-padem a ABXY – tam se otevírají okna
@@ -207,13 +207,15 @@ function ensureFocus(){
 // posuvný kontejner, ve kterém prvek leží (mřížka deníku, seznam v obchodě…)
 function scrollParent(el){
   for (let p = el.parentElement; p && p !== document.body; p = p.parentElement){
-    if (/(auto|scroll)/.test(getComputedStyle(p).overflowY) && p.scrollHeight > p.clientHeight + 2) return p;
+    const cs = getComputedStyle(p);
+    if (/(auto|scroll)/.test(cs.overflowY) && p.scrollHeight > p.clientHeight + 2) return p;
+    if (/(auto|scroll)/.test(cs.overflowX) && p.scrollWidth > p.clientWidth + 2) return p;   // obchod: posun do stran
   }
   return null;
 }
 function inView(el, box){
   const r = el.getBoundingClientRect(), c = box.getBoundingClientRect();
-  return r.bottom > c.top + 4 && r.top < c.bottom - 4;
+  return r.bottom > c.top + 4 && r.top < c.bottom - 4 && r.right > c.left + 4 && r.left < c.right - 4;
 }
 // nejbližší prvek ve směru (hlavní osa + 2,2× boční odchylka)
 function pickDir(list, from, dir){
@@ -243,7 +245,10 @@ function moveFocus(dir){
     if (vis.length){ setFocus(vis[0]); return; }
   }
   let best = sp ? pickDir(list.filter(el => sp.contains(el)), focused, dir) : null;
-  if (!best) best = pickDir(sp ? list.filter(el => !sp.contains(el)) : list, focused, dir);
+  // na konci vodorovné řady (obchod) ←/→ nikam neutíká
+  const horizontal = sp && getComputedStyle(sp).overflowX !== 'visible' && sp.scrollWidth > sp.clientWidth + 2;
+  if (!best && !(horizontal && (dir === 'left' || dir === 'right')))
+    best = pickDir(sp ? list.filter(el => !sp.contains(el)) : list, focused, dir);
   if (best) setFocus(best);
   else beep(150, 0.04, 0.02, 'triangle');
 }

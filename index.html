@@ -1449,7 +1449,9 @@ body.ds .ball-card .ball-tag{ font-size:8px; top:4px; left:5px; }
 body.ds .bc-body{ padding:7px 8px 8px; gap:5px; }
 body.ds .bc-name{ font-size:10px; }
 body.ds .bc-price{ font-size:9px; }
-body.ds .ball-card .odds{ display:none; }
+body.ds .ball-card .odds{ font-size:9px; gap:1px; }
+body.ds .ball-card .odd{ gap:4px; }
+body.ds .ball-card .odd i{ width:6px; height:6px; }
 body.ds .bc-owned{ font-size:10px; }
 body.ds .bc-actions{ gap:5px; }
 body.ds .item-card{ padding:7px 8px; gap:7px; }
@@ -1591,6 +1593,25 @@ body.ds .coin-float{ zoom:var(--pz); }
 .loader-text{ font-size:20px; letter-spacing:.3em; animation:loadBlink 1s steps(2) infinite; }
 .loader-status{ font-size:11px; letter-spacing:.1em; color:#8a8aa0; text-transform:uppercase; }
 @keyframes loadBlink{ 50%{ opacity:.35; } }
+
+/* DS obchod: karty v řadě, posun do stran (prstem / D-pad ←→), nahoru/dolů jen záložky a tlačítka */
+body.ds #shopBody{
+  display:flex; flex-direction:row; align-items:stretch; gap:8px;
+  overflow-x:auto; overflow-y:hidden; overscroll-behavior-x:contain;
+  scroll-snap-type:x proximity; scroll-padding:0 10px; scrollbar-width:none;
+}
+body.ds #shopBody::-webkit-scrollbar{ display:none; }
+body.ds #shopBody > *{ flex:0 0 132px; scroll-snap-align:start; }
+body.ds #shopBody > .item-card{ flex-basis:150px; flex-direction:column; align-items:center; text-align:center; }
+body.ds #shopBody > .item-card > img{ width:36px; height:36px; }
+body.ds #shopBody > .item-card .bc-head{ flex-direction:column; align-items:center; gap:3px; }
+body.ds #shopBody > .item-card .bc-price{ margin-left:0; }
+body.ds #shopBody > .item-card .bc-actions{ margin-top:auto; width:100%; }
+body.ds #shopBody > .item-card .ic-body{ height:100%; align-items:center; }
+body.ds #shopBody > .dm-section{ display:none; }
+body.ds #shopBody > .dm-empty{ flex:1 0 100%; align-self:center; }
+body.ds #shopBody .bc-actions{ flex-direction:column; }
+body.ds #shopBody .mon-tile .actions{ flex-direction:column; width:100%; }
 </style>
 </head>
 <body>
