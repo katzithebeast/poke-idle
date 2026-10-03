@@ -24,10 +24,10 @@ const MONS_BY_RARITY = RARITIES.map((_, r) => {
    vzácného pokémona, za kterým pak dojdeš do jeho arény, oslabíš ho a chytíš.
    Legendární pokémoni z návnad nepadají – ti jsou odměnou za Pány arén (boss.js). */
 const CATCH_BALLS = {
-  poke:   { price: 40,   catch: 1,        desc: 'Základní pokéball.' },
-  great:  { price: 120,  catch: 1.5,      desc: 'Šance na chycení ×1,5.' },
-  ultra:  { price: 350,  catch: 2,        desc: 'Šance na chycení ×2.' },
-  master: { price: 6000, catch: Infinity, desc: 'Chytí vždy.' },
+  poke:   { price: 40,   catch: 1,        desc: 'Základní pokéball.', accent: '#e83a3a', tag: 'Základ' },
+  great:  { price: 120,  catch: 1.5,      desc: 'Šance na chycení ×1,5.', accent: '#3a74d8', tag: 'Šance ×1,5' },
+  ultra:  { price: 350,  catch: 2,        desc: 'Šance na chycení ×2.', accent: '#f2c230', tag: 'Šance ×2' },
+  master: { price: 6000, catch: Infinity, desc: 'Chytí vždy.', accent: '#a64ce8', tag: 'Chytí vždy' },
 };
 // návnady (dříve "pokébally" v ruletě): cena, šance na vzácnosti (%), shiny, kvalita 1–5 ★
 const SHOP_BALLS = {
@@ -224,14 +224,16 @@ function itemCardHtml(k, bag = false){
 function renderShop(){
   let html = '';
   if (shopTab === 'buy'){
+    // pokébally: stejné karty se zářícím pozadím jako návnady (barva podle síly ballu)
     for (const [k, def] of Object.entries(CATCH_BALLS)){
       const n = shop.balls[k] || 0;
-      html += `<div class="item-card">
-        <img alt="" src="${BALL_ICON[k]}">
-        <div class="ic-body">
+      html += `<div class="ball-card" data-card="c-${k}">
+        <div class="ball-show" style="--ac:${def.accent}"><span class="ball-tag">${def.tag}</span><img alt="" src="${BALL_ICON[k]}"></div>
+        <div class="bc-body">
           <div class="bc-head"><span class="bc-name">${BALL_TYPES[k].name}</span><span class="bc-price">${coinHtml(def.price)}</span></div>
-          <div class="ic-desc">${def.desc}${n ? ` · máš ${n}×` : ''}</div>
-          <div class="bc-actions"><button class="btn" data-cball="${k}" data-price="${def.price}">Koupit</button><button class="btn" data-cball="${k}" data-n="5" data-price="${def.price * 5}">×5</button></div>
+          <div class="ic-desc">${def.desc}</div>
+          <div class="bc-owned">${n ? `V batohu: ${n}` : ''}</div>
+          <div class="bc-actions"><button class="btn" data-cball="${k}" data-price="${def.price}">Koupit</button><button class="btn primary" data-cball="${k}" data-n="5" data-price="${def.price * 5}">Koupit ×5</button></div>
         </div>
       </div>`;
     }
@@ -547,6 +549,7 @@ function showCatch(mon, news, ball){
     <div class="reveal-info"><img alt="" src="${BALL_ICON[ball]}" style="width:14px;height:14px;image-rendering:pixelated;vertical-align:-2px"> Chycen do: ${BALL_TYPES[ball].name}. Najdeš ho v Týmu.</div>
     <div class="case-actions"><button class="pbtn red" data-rv="ok">Super!</button></div>`;
   revealCard.querySelector('.reveal-stage').style.backgroundImage = `url(${pxSpotlight(R.color)})`;
+  spotAnimate(revealCard.querySelector('.reveal-stage'), R.color);
   revealEl.classList.add('open');
   revealCard.style.animation = 'none'; void revealCard.offsetWidth; revealCard.style.animation = '';
   const st = revealCard.querySelector('.reveal-stage img');
@@ -600,6 +603,7 @@ function showReveal(rec, r, type){
       ${shop.lures[type] ? `<button class="pbtn" data-rv="again">Otevřít další (${shop.lures[type]})</button>` : ''}
     </div>`;
   revealCard.querySelector('.reveal-stage').style.backgroundImage = `url(${pxSpotlight(R.color)})`;
+  spotAnimate(revealCard.querySelector('.reveal-stage'), R.color);
   revealEl.classList.add('open');
   revealCard.style.animation = 'none'; void revealCard.offsetWidth; revealCard.style.animation = '';
   jingle(r);
@@ -658,14 +662,9 @@ const huntHud = document.getElementById('huntHud');
 const fadeTo = to => fade.animate([{ opacity: 1 - to }, { opacity: to }],
   { duration: to ? 300 : 400, easing: 'steps(5)', fill: 'forwards' }).finished;
 
-// vzhled trenéra (Nastavení): originální Red zezadu, nebo vlastní pixelová postava
-let trainerLook = 'red';
-try { if (localStorage.getItem('pokeIdle.trainerLook') === 'pixel') trainerLook = 'pixel'; } catch {}
 function setupTrainer(ballType){
-  const red = trainerLook === 'red' && redBackSprite();
-  trainerBox.dataset.half = red ? '1' : '';
   // vržený stín stejně jako u pokémonů (projectShadow z index.html), zem = nejnižší neprůhledný řádek
-  const sprite = red || pxTrainerSprite(ballType, (d, W, H) => {
+  const sprite = pxTrainerSprite(ballType, (d, W, H) => {
     let ground = H - 1;
     while (ground > 0 && ![...Array(W).keys()].some(x => d[(ground * W + x) * 4 + 3] > 127)) ground--;
     return projectShadow((x, y) => d[(y * W + x) * 4 + 3] > 127, W, H, ground);

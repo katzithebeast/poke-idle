@@ -427,17 +427,18 @@ dexSizeBtn.addEventListener('click', () => {
   applyDexSize();
 });
 applyDexSize();
-const lookBtn = document.createElement('button');
-lookBtn.className = 'set-row';
-lookBtn.title = 'Jak vypadá trenér při chytání';
-dexSizeBtn.after(lookBtn);
-const updateLookBtn = () => setRow(lookBtn, 'Trenér', trainerLook === 'red' ? 'Red (originál)' : 'pixelový');
-lookBtn.addEventListener('click', () => {
-  trainerLook = trainerLook === 'red' ? 'pixel' : 'red';
-  try { localStorage.setItem('pokeIdle.trainerLook', trainerLook); } catch {}
-  updateLookBtn();
+const glowBtn = document.createElement('button');
+glowBtn.className = 'set-row';
+glowBtn.title = 'Světlo v ukázce pokémona (chycení, ruleta, deník) se mihotá a třpytí';
+dexSizeBtn.after(glowBtn);
+const updateGlowBtn = () => setRow(glowBtn, 'Záře v ukázce', glowAnim ? 'animovaná' : 'statická');
+glowBtn.addEventListener('click', () => {
+  glowAnim = !glowAnim;
+  try { localStorage.setItem('pokeIdle.glowAnim', glowAnim ? '1' : '0'); } catch {}
+  document.querySelectorAll('.reveal-stage, .detail-stage, .ds-stage').forEach(el => glowAnim ? el.dataset.tint && spotAnimate(el, el.dataset.tint) : el.querySelector('canvas.spot-anim')?.remove());
+  updateGlowBtn();
 });
-updateLookBtn();
+updateGlowBtn();
 orientBtn.addEventListener('click', () => {
   orientLock = !orientLock;
   try { localStorage.setItem('pokeIdle.orient', orientLock ? 'lock' : 'free'); } catch {}

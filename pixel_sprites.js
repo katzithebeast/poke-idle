@@ -309,6 +309,83 @@ function pxSpotlight(tint = '#e8a050'){
   return url;
 }
 
+/* ---------- Animovaná záře: nad obrázek pxSpotlight se položí plátno, které světlo „rozžije“ ----------
+   mihotání kužele (ditherovaný jas), paprsek, který kuželem pomalu přejíždí, poletující prach
+   a dýchající louže světla. Přepínač v Nastavení (pokeIdle.glowAnim). */
+let glowAnim = true;
+try { glowAnim = localStorage.getItem('pokeIdle.glowAnim') !== '0'; } catch {}
+const spotAnims = new Set();
+function spotAnimate(el, tint = '#e8a050'){
+  el.dataset.tint = tint;
+  let c = el.querySelector(':scope > canvas.spot-anim');
+  if (!glowAnim){ c?.remove(); return; }
+  if (!c){
+    c = document.createElement('canvas');
+    c.className = 'spot-anim';
+    c.width = SPOT_W; c.height = SPOT_H;
+    el.prepend(c);
+  }
+  c._tint = tint;
+  c._t0 ||= performance.now();
+  if (!c._motes){
+    const r = pxRng(Math.floor(Math.random() * 1e6));
+    c._motes = Array.from({ length: 22 }, () => ({ y: r() * SPOT_POOL[1], k: r() * 2 - 1, sp: 2 + r() * 5, ph: r() * 6.28, tw: 0.6 + r() * 1.6 }));
+  }
+  spotAnims.add(c);
+  if (spotAnims.size === 1) requestAnimationFrame(spotTick);
+}
+function spotTick(now){
+  for (const c of spotAnims){
+    if (!c.isConnected || !glowAnim){ spotAnims.delete(c); continue; }
+    if (!c.offsetParent) continue;   // skryté → nekreslit
+    const f = Math.floor((now - c._t0) / 83);           // ~12 snímků/s – pixelový rytmus
+    if (c._f === f) continue;
+    c._f = f;
+    drawSpotAnim(c, f);
+  }
+  if (spotAnims.size) requestAnimationFrame(spotTick);
+}
+function drawSpotAnim(c, f){
+  const g = c.getContext('2d'), W = SPOT_W, H = SPOT_H, [px, py, prx, pry] = SPOT_POOL, t = f / 12;
+  g.clearRect(0, 0, W, H);
+  const hi = pxMixHex(c._tint, '#ffffff', 0.85);
+  const dot = (x, y) => g.fillRect(x, y, 1, 1);
+  const halfAt = y => 13 + (prx - 4 - 13) * (y / py);
+  // 1) mihotání: celý kužel jemně pulzuje (ditherovaná vrstva se střídá ve fázi)
+  const pulse = 0.5 + 0.5 * Math.sin(t * 2.2) * Math.sin(t * 0.7 + 1);
+  g.fillStyle = hi; g.globalAlpha = 0.05 + pulse * 0.1;
+  for (let y = 0; y <= py; y++){ const h = halfAt(y) * 0.8; for (let x = Math.ceil(px - h); x < px + h; x++) if ((x + y + f) % 2 === 0) dot(x, y); }
+  // 2) paprsek: šikmý světlejší pruh přejíždí kuželem tam a zpět
+  const sweep = Math.sin(t * 0.55) * 0.75;
+  g.globalAlpha = 0.22;
+  for (let y = 0; y <= py; y++){
+    const h = halfAt(y), cx = px + sweep * h, w = 2 + y / py * 6;
+    for (let x = Math.round(cx - w); x <= cx + w; x++) if (Math.abs(x - px) < h * 0.85 && (Math.abs(x - cx) < w * 0.5 || (x + y) % 2 === 0)) dot(x, y);
+  }
+  // 3) louže světla dýchá
+  g.globalAlpha = 0.12 + pulse * 0.16;
+  const rr = 0.8 + 0.12 * Math.sin(t * 1.6);
+  for (let y = py - pry; y <= py + pry; y++) for (let x = px - prx; x <= px + prx; x++){
+    const d = Math.hypot((x + 0.5 - px) / prx, (y + 0.5 - py) / pry);
+    if (d < rr && (d < rr - 0.25 || (x + y + f) % 2 === 0)) dot(x, y);
+  }
+  // 4) prach stoupá ve světle a třpytí se
+  g.globalAlpha = 1;
+  for (const m of c._motes){
+    const y = ((m.y - t * m.sp) % py + py) % py, h = halfAt(y) * 0.78;
+    const x = Math.round(px + m.k * h + Math.sin(t * 1.3 + m.ph) * 2);
+    const tw = Math.sin(t * m.tw * 3 + m.ph);
+    if (tw > -0.3){ g.globalAlpha = tw > 0.6 ? 1 : 0.55; dot(x, Math.round(y)); }
+    if (tw > 0.92){ g.globalAlpha = 0.5; dot(x - 1, Math.round(y)); dot(x + 1, Math.round(y)); dot(x, Math.round(y) - 1); dot(x, Math.round(y) + 1); }
+  }
+  g.globalAlpha = 1;
+}
+document.head.insertAdjacentHTML('beforeend', `<style>
+canvas.spot-anim{ position:absolute; inset:0; width:100%; height:100%; object-fit:cover; image-rendering:pixelated; pointer-events:none; z-index:0; }
+.reveal-stage > img, .detail-stage > img, .ds-stage > img{ position:relative; z-index:1; }
+.ds-stage > b{ z-index:2; }
+</style>`);
+
 /* ---------- Ikony pro navigaci (12 × 12, obrys se dokreslí automaticky) ---------- */
 const ICON_OUT = '#0b0b14';
 function pxIcon(paint, size = 12){
@@ -649,75 +726,4 @@ function pxBust(key){
   c.width = c.height = N;
   c.getContext('2d').putImageData(new ImageData(buf, N, N), 0, 0);
   return c;
-}
-
-/* ---------- Originální Red zezadu (FireRed/LeafGreen, pret/pokefirered) ----------
-   5 snímků 64 × 64 pod sebou: klid, nápřah, nápřah 2, hod, dohoz. Bitevní sprite je
-   useknutý v pase – stojí v dolním rohu horního displeje jako v originálních hrách. */
-let RED_BACK = null;
-// FireRed sprite je useknutý v pase → domalujeme džíny a boty (stejná paleta), ať Red stojí na plošině
-const RED_H = 90;
-function redLegs(g){
-  const C = { o: '#000000', d: '#39397b', m: '#5a62bd', h: '#73a4c5', r: '#cd624a', R: '#ff735a', w: '#eeeeff', s: '#c5c5de' };
-  const px = (x, y, c) => { g.fillStyle = C[c]; g.fillRect(x, y, 1, 1); };
-  const span = (y, x0, x1, fill, hl) => { px(x0, y, 'o'); px(x1, y, 'o'); for (let x = x0 + 1; x < x1; x++) px(x, y, hl && x >= x1 - hl ? 'm' : fill); };
-  for (let y = 58; y < 70; y++) span(y, 23, 47, 'd', 4);                         // boky (většinou za batohem)
-  for (let y = 70; y < 83; y++){                                                   // nohavice
-    const k = Math.floor((y - 70) / 7);
-    span(y, 24 + k, 34, 'd', 2); span(y, 36, 46 - k, 'd', 3);
-    if (y % 5 === 2){ px(28 + k, y, 'm'); px(40, y, 'm'); }                         // záhyby
-  }
-  for (let x = 25; x < 34; x++) px(x, 70, 'o'); for (let x = 37; x < 45; x++) px(x, 70, 'o');   // spodní lem trička/batohu
-  for (let y = 83; y < 88; y++){                                                   // boty
-    span(y, 23, 34, y === 86 ? 'w' : 'r', y < 85 ? 2 : 0); span(y, 36, 47, y === 86 ? 'w' : 'r', y < 85 ? 3 : 0);
-    if (y === 83){ px(29, y, 'R'); px(41, y, 'R'); }
-  }
-  for (let x = 23; x <= 34; x++) px(x, 88, 'o'); for (let x = 36; x <= 47; x++) px(x, 88, 'o');
-}
-// spodní řádek useknutého spritu zakulatí (o 1 px zúží a orámuje černou)
-function redCloseCut(g, d){
-  const op = x => x >= 0 && x < 64 && d[(63 * 64 + x) * 4 + 3] > 127;
-  for (let x = 0; x < 64; x++){
-    if (!op(x)) continue;
-    const i = (63 * 64 + x) * 4, inner = op(x - 1) && op(x + 1);
-    g.fillStyle = inner ? `rgb(${d[i]},${d[i + 1]},${d[i + 2]})` : '#000'; g.fillRect(x, 64, 1, 1);
-    if (inner){ g.fillStyle = '#000'; g.fillRect(x, 65, 1, 1); }
-  }
-}
-const RED_BACK_READY = new Promise(res => {
-  const img = new Image();
-  img.onload = () => {
-    try {
-      const frames = [], data = [];
-      for (let i = 0; i < 5; i++){
-        const src = document.createElement('canvas');
-        src.width = src.height = 64;
-        src.getContext('2d').drawImage(img, 0, -i * 64);
-        const d0 = src.getContext('2d').getImageData(0, 0, 64, 64).data;
-        const c = document.createElement('canvas');
-        c.width = 64; c.height = RED_H;
-        const g = c.getContext('2d');
-        redLegs(g);
-        g.drawImage(src, 0, 0);
-        redCloseCut(g, d0);
-        frames.push(c); data.push(g.getImageData(0, 0, 64, RED_H).data);
-      }
-      RED_BACK = { frames, data };
-    } catch {}
-    res();
-  };
-  img.onerror = () => res();
-  img.src = 'assets/trainers/red_back.png';
-});
-function redBackSprite(){
-  if (!RED_BACK) return null;
-  const order = [0, 0, 1, 2, 3, 4];
-  const delays = [700, 700, 110, 130, 90, 260];
-  const W = 64, H = RED_H, ground = H - 2;
-  RED_BACK.shadows ||= RED_BACK.data.map(d => projectShadow((x, y) => d[(y * W + x) * 4 + 3] > 127, W, H, ground));   // index.html
-  return {
-    W, H, frames: order.map(i => RED_BACK.frames[i]), data: order.map(i => RED_BACK.data[i]), delays,
-    shadows: order.map(i => RED_BACK.shadows[i]), idle: [0, 1], action: [2, 5], method: 'red', half: true,
-    releaseMs: delays[2] + delays[3], release: [58, 26],
-  };
 }

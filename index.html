@@ -2096,7 +2096,7 @@ const snapTo = (v, step) => Math.max(step, Math.round(v / step) * step);
 
 // násobek velikosti spritu (v pixelech arény) podle předvolby
 function spriteScaleFor(box, natH){
-  if (box.dataset.trainer) return box.dataset.half ? 1.5 : 1;   // pixelový trenér 1:1, originální Red 1,5×
+  if (box.dataset.trainer) return 1;   // pixelový trenér 1:1
   const back = box.id === 'playerBox';
   const native = back ? 2 : 1;               // BW: sprity zezadu jsou 2×
   if (sizePreset === 'default') return native;
@@ -3320,6 +3320,7 @@ function openDetail(id, shiny, copyIdx = 0){
   document.getElementById('detailName').innerHTML = (shiny ? STAR : '') + NAMES[id - 1];
   document.getElementById('detailImg').src = spriteUrl(id, { shiny });
   document.querySelector('.detail-stage').style.backgroundImage = `url(${pxSpotlight(TYPE_COLORS[types[0]] || '#e8a050')})`;
+  spotAnimate(document.querySelector('.detail-stage'), TYPE_COLORS[types[0]] || '#e8a050');
   document.getElementById('detailTypes').innerHTML = typeChips(id);
   document.querySelector('.detail-stage').dataset.name = `#${pad3(id)} ${NAMES[id - 1]}`;
   const fmt = ts => new Date(ts).toLocaleDateString('cs-CZ');

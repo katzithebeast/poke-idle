@@ -25,7 +25,9 @@ function showStage(id, shiny, title){
   const img = dsStage.querySelector('img'), src = spriteUrl(id, { shiny });
   if (img.getAttribute('src') !== src) img.src = src;
   dsStage.querySelector('b').textContent = title;
-  dsStage.style.backgroundImage = `url(${pxSpotlight(TYPE_COLORS[monTypes(id)[0]] || '#e8a050')})`;
+  const tint = TYPE_COLORS[monTypes(id)[0]] || '#e8a050';
+  dsStage.style.backgroundImage = `url(${pxSpotlight(tint)})`;
+  spotAnimate(dsStage, tint);
   dsStage.classList.add('open');
 }
 function hideStage(){ dsStage.classList.remove('open'); }

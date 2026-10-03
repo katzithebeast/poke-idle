@@ -111,6 +111,7 @@ async function battleLoop(){
   for (;;){
     await wait(100);
     renderBattleHud();
+    autoReturn();
     // pojistka: soupeř s 0 HP, který neomdlívá (např. po lovu/bossovi zrušený příchod nového) → nový soupeř
     if (battle.enemy.hp <= 0 && !hunt && !bossFight && monState.get(enemyBox) === 'idle'){
       if (!stuckSince) stuckSince = performance.now();
@@ -157,6 +158,18 @@ async function doAttack(aBox, dBox, att, attSt, def, defSt){
   if (hunt) return;
   if (dBox === enemyBox) faint(enemyBox);   // → onEnemyDefeated → rewardDefeat
   else playerFainted();
+}
+
+// omdlelý pokémon se po úplném vyléčení sám vrátí na plošinu (pokud mezitím nikoho jiného neposlal hráč)
+let autoReturnAt = 0;
+function autoReturn(force = false){
+  const a = activeMon();
+  if (!a || a.fainted || a.hp < 1 || monState.get(playerBox) !== 'faint' || playerBox.hidden) return;
+  if (hunt || bossFight || battle.trainerCtx || document.body.classList.contains('manual')) return;
+  if (!force && performance.now() < autoReturnAt) return;
+  autoReturnAt = performance.now() + 3000;
+  toast(`${NAMES[a.id - 1]} je vyléčený a vrací se do boje!`);
+  sendMon(a.uid);
 }
 
 function playerFainted(){

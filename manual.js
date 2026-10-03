@@ -258,7 +258,10 @@ const fightReady = () => manualActive() && !fightOpen;
 // je bojující pokémon připravený? když ne, poradí co dělat
 function guardReady(){
   const p = activeMon();
-  if (p && !p.fainted && p.hp >= 1) return true;
+  // bojovat jde jen se zdravým pokémonem, který opravdu stojí na plošině ("na stole")
+  const onField = !playerBox.hidden && monState.get(playerBox) !== 'faint' && Number(playerBox.dataset.id) === p?.id;
+  if (p && !p.fainted && p.hp >= 1 && onField) return true;
+  if (p && !p.fainted && p.hp >= 1){ toast(`${NAMES[p.id - 1]} se právě vrací na plošinu – chvilku vydrž.`); autoReturn(true); return false; }
   const other = party.team.map(monByUid).some(m => m && m !== p && !m.fainted && m.hp >= 1);
   toast(other ? 'Tvůj pokémon nemůže bojovat – pošli dalšího z Týmu (X).' : 'Žádný pokémon není připravený – počkej na vyléčení nebo použij Lektvar.');
   beep(150, 0.08, 0.03, 'square');
