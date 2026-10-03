@@ -96,13 +96,13 @@ dsPanel.innerHTML = `
     <button class="dsp-tile" data-act="dex"><span>Deník</span></button>
     <button class="dsp-tile" data-act="shop"><span>Obchod</span><small>Y</small></button>
     <button class="dsp-tile" data-act="arena"><span>Aréna</span></button>
-    <button class="dsp-tile" data-act="auto"><span id="dspAuto">Auto boj</span><small>SELECT</small></button>
+    <button class="dsp-tile" data-act="map"><span>Mapa</span></button>
     <button class="dsp-tile" data-act="settings"><span>Menu</span><small>START</small></button>
   </div>`;
 document.body.appendChild(dsPanel);
-const tileIcon = { team: 'team', dex: 'dex', shop: 'shop', arena: 'arena', settings: 'settings', auto: 'settings' };
+const tileIcon = { team: 'team', dex: 'dex', shop: 'shop', arena: 'arena', settings: 'settings', map: 'map' };
 dsPanel.querySelectorAll('.dsp-tile').forEach(t => {
-  const ic = t.dataset.act === 'auto' ? pxBallCanvas('ultra', 14) : NAV_ICONS[tileIcon[t.dataset.act]]();
+  const ic = NAV_ICONS[tileIcon[t.dataset.act]]();
   t.prepend(ic);
 });
 const dsTopBar = document.createElement('div');
@@ -166,7 +166,6 @@ function dsRender(){
   const fr = fightReady();
   $('dspFight').hidden = !fr;
   if (fr) $('dspFight').innerHTML = `<b>⚔ Bojovat:</b> divoký ${NAMES[battle.enemy.id - 1]} Lv ${battle.enemy.lvl} · A`;
-  $('dspAuto').textContent = autoOn ? 'Boj: auto' : 'Boj: ruční';
   // bezely: nahoře kde jsi, dole nápověda ovládání
   dsTopBar.textContent = bossFight ? `Pán arény · ${a.name}` : hunt ? `Lov · ${a.name}` : `${a.name} · Lv ${lv.join('–')}`;
   const L = topLayer();
@@ -191,7 +190,7 @@ dsPanel.addEventListener('click', (e) => {
   ({
     team: openTeam, dex: openJournal, shop: () => openShop(),
     arena: () => arenaBtn.click(), settings: () => document.getElementById('settingsBtn').click(),
-    auto: () => { autoBtn.click(); toast(autoOn ? 'Auto boj (idle)' : 'Ruční boj – soupeř čeká, zvol Bojovat'); },
+    map: () => openMap(),
   })[t.dataset.act]?.();
 });
 
@@ -262,6 +261,7 @@ function pickDir(list, from, dir){
    Když mřížku posuneš prstem a výběr zmizí z dohledu, první stisk ho vrátí
    na pokémona, kterého právě vidíš. */
 function moveFocus(dir){
+  if (mapMode === 'browse') return mapStep(dir === 'left' || dir === 'up' ? -1 : 1);   // mapa (map.js)
   const list = ensureFocus();
   if (!focused) return;
   // obchod (DS): ←→ mezi kartami stránky, na kraji přepne stránku
@@ -291,7 +291,8 @@ function moveFocus(dir){
 
 /* ---------- Tlačítka konzole ---------- */
 function pressA(){
-  if (dialogRun) return dialogRun.next();   // rozhovor (trainers.js)
+  if (dialogRun) return dialogRun.next();
+  if (mapMode === 'browse') return travelTo(mapSel);   // rozhovor (trainers.js)
   const L = topLayer();
   if (L === dsPanel && !$('dspBoss').hidden && (!focused || focused === $('dspBoss'))) return startBoss();
   if (L === manualPanel){ ensureFocus(); return focused && L.contains(focused) ? focused.click() : takeTurn('attack'); }
@@ -302,6 +303,7 @@ function pressA(){
 }
 function pressB(){
   if (dialogRun) return dialogRun.next();
+  if (mapMode === 'browse') return closeMap();
   if (evoRun){ evoRun.cancelled = true; return; }
   const L = topLayer();
   if (L === manualPanel) return takeTurn('guard');

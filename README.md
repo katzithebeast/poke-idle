@@ -84,3 +84,6 @@ nativní části (ikona, oprávnění, Capacitor).
 ## Úkoly, úspěchy, Team Rocket
 - `quests.js` – denní úkoly (3 nové každý den) a úspěchy; odměny v Deníku → Úkoly / Úspěchy. `gameEvent()` sbírá statistiky.
 - `trainers.js` – po výhrách občas vyzve trenér Team Rocket (Jessie, James, Butch, Cassidy, Raketák) – ruční souboj s týmem 2–3 pokémonů, za výhru mince, návnada a předmět.
+
+## Mapa
+`map.js` – pixelová mapa regionu na horním displeji. Dlaždice Mapa (nebo klávesa M): D-pad výběr, A cestovat, B zpět. Výběr arény v menu Aréna ukáže cestu po mapě. Na mapě: zámky, odznaky (★ poražený Pán), stopy (!) a legendy (✦).

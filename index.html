@@ -1738,6 +1738,7 @@ body.ds .pad-slot{ display:block; }
   <button class="nav-btn" id="journalBtn" data-icon="dex" title="Deník (J)"><span>Deník</span></button>
   <button class="nav-btn" id="shopBtn" data-icon="shop" title="Obchod (O)"><span>Obchod</span></button>
   <button class="nav-btn" id="arenaBtn" data-icon="arena" title="Aréna"><span>Aréna</span></button>
+  <button class="nav-btn" id="mapBtn" data-icon="map" title="Mapa (M)"><span>Mapa</span></button>
   <button class="nav-btn" id="settingsBtn" data-icon="settings" title="Nastavení"><span>Nastavení</span></button>
 </nav>
 <div class="pop" id="settingsMenu">
@@ -3012,7 +3013,7 @@ arenaMenu.addEventListener('click', (e) => {
   if (!b) return;
   arenaMenu.classList.remove('open');
   if (arenaLocked(b.dataset.arena)) return toast('Aréna je zamčená – vyhraj víc soubojů v předchozí.');
-  if (b.dataset.arena !== arena) switchArena(b.dataset.arena);
+  if (b.dataset.arena !== arena) travelTo(b.dataset.arena);   // cesta po mapě (map.js)
 });
 document.addEventListener('pointerdown', (e) => {
   if (!arenaMenu.contains(e.target) && !arenaBtn.contains(e.target)) arenaMenu.classList.remove('open');
@@ -3459,6 +3460,7 @@ animate();
 <script src="trainers.js?v=1082a5ee"></script>
 <script src="story.js?v=1082a5ee"></script>
 <script src="dev.js?v=1082a5ee"></script>
+<script src="map.js"></script>
 <script src="ds.js?v=1082a5ee"></script>
 </body>
 </html>

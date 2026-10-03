@@ -347,6 +347,14 @@ const NAV_ICONS = {
     if (y < 6) return '#ffffff';                                      // sníh
     return x + 0.5 < 6.5 ? '#9a9ab8' : '#6a6a88';
   }),
+  // mapa = složená mapa s cestou a špendlíkem
+  map: () => pxIcon((x, y) => {
+    if (x < 1 || x > 10 || y < 2 || y > 10) return null;
+    if (x === 4 || x === 7) return '#c8b888';                                          // přehyby
+    if (Math.hypot(x - 7.5, y - 4.5) < 1.6) return '#e83a3a';                          // špendlík
+    if ((x + y * 2) % 5 === 0 && y > 5) return '#8a5a30';                              // cesta
+    return x < 4 ? '#e8dcb0' : x < 7 ? '#d8c890' : '#e8dcb0';
+  }),
   // nastavení = ozubené kolo
   settings: () => pxIcon((x, y, dx, dy) => {
     const d = Math.hypot(dx, dy), a = Math.atan2(dy, dx);
