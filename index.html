@@ -1664,6 +1664,12 @@ body.ds .pad-slot{ display:block; }
       dust.push({ el: d, x: -10 - i * 6, y: Math.random() * 6, vx: -(SPEED * (0.6 + Math.random() * 0.5)), life: 0.5 + Math.random() * 0.3, t: 0 });
     }
   };
+  const dustOne = () => {
+    const d = document.createElement('i');
+    d.className = 'loader-dust';
+    stage.appendChild(d);
+    dust.push({ el: d, x: -10, y: Math.random() * 4, vx: -(SPEED * (0.5 + Math.random() * 0.4)), life: 0.35 + Math.random() * 0.25, t: 0 });
+  };
   const step = now => {
     if (!document.getElementById('loader')) return;
     const dt = Math.min(0.05, (now - last) / 1000); last = now;
@@ -1675,6 +1681,8 @@ body.ds .pad-slot{ display:block; }
       if (vh < 60) vh = 0;
     }
     rot += SPEED * dt / (SIZE / 2);
+    // při valení po zemi sype prach průběžně (při skocích jen při dopadu)
+    if (h === 0 && vh === 0 && (rollT += dt) > 0.09){ rollT = 0; dustOne(); }
     const ph = Math.round(h / 4) * 4, deg = Math.round(rot * 180 / Math.PI / 22.5) * 22.5;
     cv.style.transform = `translateY(${-ph}px) rotate(${deg}deg)`;
     const k = Math.max(0.25, 1 - h / 260);
