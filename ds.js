@@ -199,6 +199,13 @@ function setFocus(el){
   focused = el;
   if (!el) return;
   el.classList.add('ds-focus');
+  // obchod: posun po celých stránkách (3 karty), nikdy napůl viditelná karta
+  const card = el.closest('#shopBody > *');
+  if (card){
+    const body = card.parentElement, cards = [...body.children], i = cards.indexOf(card);
+    cards[Math.floor(i / 3) * 3].scrollIntoView({ inline: 'start', block: 'nearest', behavior: 'smooth' });   // (zoom → nechat přepočet na prohlížeči)
+    return;
+  }
   el.scrollIntoView({ block: 'nearest', inline: 'nearest' });
 }
 function ensureFocus(){

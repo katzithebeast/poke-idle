@@ -41,6 +41,64 @@ const STATUS = {
   dodge: { name: 'úhyb', bad: false }, foresight: { name: 'předtucha', bad: false }, guard: { name: 'krytí', bad: false },
 };
 
+
+/* ---------- Vzhled (CSS je tady, ať se styl a logika nikdy nerozejdou mezi verzemi) ---------- */
+document.head.insertAdjacentHTML('beforeend', `<style>
+.manual-panel{
+  position:fixed; left:50%; bottom:16px; z-index:45; transform:translateX(-50%);
+  display:none; flex-direction:column; gap:6px; box-sizing:border-box;
+  width:min(440px, calc(100vw - 24px)); height:330px; padding:10px 12px 10px;
+  color:var(--w-fg); background:var(--w-bg); box-shadow:var(--w-frame);
+  font-family:var(--font-body); -webkit-font-smoothing:none; zoom:var(--zoom, 1);
+}
+body.manual .manual-panel{ display:flex; }
+body.manual-wait:not(.ds) .manual-panel{ display:flex; height:auto; padding:6px; }
+.mp-start{ all:unset; cursor:pointer; text-align:center; padding:12px; font:700 13px var(--font-title); color:#fff; background:#e85a3a; }
+body.ds .manual-panel{
+  zoom:var(--dsk); transform:none; box-shadow:none;
+  left:calc(var(--bx) / var(--dsk)); top:calc(var(--by) / var(--dsk)); bottom:auto;
+  width:calc(var(--bw) / var(--dsk)); height:calc(var(--bh) / var(--dsk));
+}
+body.ds.manual #dsPanel{ visibility:hidden; }
+.mp-msg{ font:13px var(--font-body); min-height:34px; padding:6px 8px; background:var(--w-card); line-height:1.3; }
+.mp-row{ display:flex; align-items:center; gap:6px; flex-wrap:wrap; }
+.mp-who{ font:700 10px var(--font-title); }
+.mp-ep{ display:flex; gap:2px; }
+.mp-ep i{ width:8px; height:6px; background:var(--w-track); }
+.mp-ep i.on{ background:#5ab0ff; }
+.mp-epn{ font:700 9px var(--font-title); color:#5ab0ff; }
+.mp-sts{ display:flex; gap:4px; flex-wrap:wrap; margin-left:auto; align-items:center; }
+.mp-st{ font:700 8px var(--font-title); text-transform:uppercase; padding:2px 4px 1px; }
+.mp-st.bad{ background:#7a2430; color:#ffd0d0; } .mp-st.good{ background:#2a5a3a; color:#d0ffd8; }
+.mp-vs{ color:var(--w-muted); font-size:9px; margin-left:4px; }
+/* kosočtverec jako na konzoli: X nahoře, Y vlevo, A vpravo, B dole; popisek vždy vedle tlačítka */
+.mp-pad{
+  flex:1; min-height:0; display:grid; grid-template-columns:1fr 1fr; grid-template-rows:1fr 1fr 1fr;
+  grid-template-areas:"x x" "y a" "b b"; align-items:center; column-gap:8px;
+}
+.mp-key{ all:unset; cursor:pointer; box-sizing:border-box; display:flex; align-items:center; gap:8px; padding:2px 4px; -webkit-tap-highlight-color:transparent; }
+.k-x{ grid-area:x; justify-self:center; } .k-b{ grid-area:b; justify-self:center; }
+.k-y{ grid-area:y; justify-self:end; flex-direction:row-reverse; } .k-a{ grid-area:a; justify-self:start; }
+.k-y .mp-lbl{ text-align:right; align-items:flex-end; }
+.mp-ball{
+  width:52px; height:52px; flex:none; display:flex; align-items:center; justify-content:center;
+  background:center / 100% 100% no-repeat; image-rendering:pixelated;
+  font:700 19px var(--font-title); color:#ececf2; text-shadow:0 2px 0 #000;
+}
+.mp-key:active .mp-ball, .mp-key.ds-focus .mp-ball{ filter:brightness(1.35); }
+.mp-key.ds-focus{ outline:none !important; }
+.mp-key.ds-focus .mp-ball{ box-shadow:0 0 0 3px var(--gold); border-radius:50%; }
+.mp-lbl{ display:flex; flex-direction:column; gap:2px; }
+.mp-lbl b{ font:700 13px var(--font-title); white-space:nowrap; letter-spacing:.03em; }
+.mp-lbl small{ font:700 9px var(--font-title); color:var(--w-muted); white-space:nowrap; text-transform:uppercase; }
+.k-a .mp-lbl b{ color:#ff8a6a; } .k-b .mp-lbl b{ color:#7ae08a; } .k-x .mp-lbl b, .k-y .mp-lbl b{ color:#7ab8ff; }
+.mp-key:disabled{ opacity:.35; cursor:default; }
+.mp-foot{ display:flex; justify-content:space-between; }
+.mp-side{ all:unset; cursor:pointer; font:700 9px var(--font-title); text-transform:uppercase; color:var(--w-muted); padding:3px 4px; }
+.mp-side:disabled{ opacity:.35; }
+.dsp-fight{ background:#e85a3a !important; color:#fff !important; animation:none !important; }
+</style>`);
+
 /* ---------- Stav souboje (bojovníci: hráčův pokémon P a soupeř E) ---------- */
 let fightKey = null;
 const P = { side: 'p', ep: 0, st: {} }, E = { side: 'e', ep: 0, st: {} };
@@ -218,7 +276,7 @@ const stTags = X => Object.keys(X.st).filter(k => STATUS[k]).map(k =>
   `<span class="mp-st ${STATUS[k].bad ? 'bad' : 'good'}">${STATUS[k].name}${k === 'poison' && X.st.poisonStack > 1 ? ' ×' + X.st.poisonStack : ''}</span>`).join('');
 // kulaté pixelové tlačítko (tmavé jako na kabátku), písmeno se kreslí přes něj
 const BTN_IMG = (() => {
-  const c = document.createElement('canvas'), n = 22, r = n / 2;
+  const c = document.createElement('canvas'), n = 26, r = n / 2;
   c.width = c.height = n;
   const g = c.getContext('2d');
   for (let y = 0; y < n; y++) for (let x = 0; x < n; x++){
@@ -250,11 +308,13 @@ function renderManual(){
       <span class="mp-ep">${Array.from({ length: EP_MAX }, (_, i) => `<i class="${i < P.ep ? 'on' : ''}"></i>`).join('')}</span><span class="mp-epn">${P.ep} EP</span>
       <span class="mp-sts">${stTags(P)}${Object.keys(E.st).some(k => STATUS[k]) ? `<span class="mp-vs">soupeř</span>${stTags(E)}` : ''}</span></div>
     <div class="mp-pad">
-      <button class="mp-side l" data-mp="flee" ${turnBusy ? 'disabled' : ''}>Utéct</button>
-      <button class="mp-side r" data-mp="menu" ${turnBusy ? 'disabled' : ''}>Menu<small>START</small></button>
       ${s1}${s2}
       ${btn('attack', 'A', 'Útok', '+1 EP', true)}
       ${btn('guard', 'B', 'Krytí', '−60 % · +2 EP', true)}
+    </div>
+    <div class="mp-foot">
+      <button class="mp-side" data-mp="flee" ${turnBusy ? 'disabled' : ''}>◂ Utéct</button>
+      <button class="mp-side" data-mp="menu" ${turnBusy ? 'disabled' : ''}>Menu · START ▸</button>
     </div>`;
 }
 manualPanel.addEventListener('click', (e) => {

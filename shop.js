@@ -249,7 +249,11 @@ function renderShop(){
   } else {
     html = shop.hunts.map(monCardHtml).join('') || '<div class="dm-empty">Žádný vylosovaný pokémon nečeká. Otevři pokéball!</div>';
   }
+  // DS: celé stránky po 3 kartách (prázdná místa doplnit), ať je vždy vidět přesně 3 celé
+  const n = (html.match(/class="(ball-card|item-card|mon-tile)/g) || []).length;
+  if (n > 3 && n % 3) html += '<div class="pad-slot"></div>'.repeat(3 - n % 3);
   shopBody.innerHTML = html;
+  shopBody.scrollLeft = 0;   // nová záložka vždy od začátku
   refreshShopState();
 }
 // jen čísla, záložky a dostupnost tlačítek – bez překreslení (ať se neresetují animace vitrín)
