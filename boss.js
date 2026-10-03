@@ -66,7 +66,10 @@ async function startBoss(){
   bossMsg.textContent = 'Zastav ukazatel uprostřed (A, mezerník nebo ťuk)';
   bossHud.classList.add('open');
   await fadeTo(0);
-  toast(`${def.title} ${NAMES[def.id - 1]} (Lv ${lvl}) přijímá výzvu!`, true);
+  bossHud.classList.remove('open');
+  await showDialog([...leaderLines(arena, 'hi'), { who: 'player', name: 'Ty', text: 'Jdeme na to!' }]);   // story.js
+  bossHud.classList.add('open');
+  toast(`${LEADERS[arena]?.name || def.title} posílá ${NAMES[def.id - 1]} (Lv ${lvl})!`, true);
   [392, 523, 659].forEach((f, i) => beep(f, 0.14, 0.05, 'square', i * 0.12));
   requestAnimationFrame(bossTick);
   bossAi();
@@ -154,7 +157,9 @@ async function bossWon(){
   const next = ARENA_ORDER[tier + 1];
   if (next) setTimeout(() => toast(`Odemčena nová aréna: ${ARENAS[next].name} (Lv ${ARENA_LEVELS[next].join('–')})!`, true), 1600);
   decorateArenaMenu();
-  await wait(2600);
+  await wait(1600);
+  bossHud.classList.remove('open');
+  await showDialog(leaderLines(b.arena, 'win'));
   endBoss();
 }
 
@@ -164,7 +169,9 @@ async function bossLost(p){
   playerFainted();
   bossMsg.textContent = 'Prohra…';
   toast(`${NAMES[b.id - 1]} tě tentokrát porazil. Potrénuj a zkus to znovu!`);
-  await wait(2200);
+  await wait(1200);
+  bossHud.classList.remove('open');
+  await showDialog(leaderLines(b.arena, 'lose'));
   endBoss();
 }
 

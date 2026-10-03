@@ -449,7 +449,7 @@ function pxPortrait(key){
   ell(16, 34, 15, 7, rocket);
   if (S.outfit === 'player' || key === 'player'){ ell(16, 27.5, 7, 2.2, ['#7a7a90', '#4c4c5c', '#30303c', '#14141a']); }   // stažená kapuce
   if (S.outfit !== rocket || key !== 'player'){
-    if (key !== 'player'){ // velké červené R na hrudi
+    if (typeof S.outfit === 'string' && S.outfit.startsWith('rocket')){ // velké červené R na hrudi
       const R = ['111', '101', '110', '101'];
       R.forEach((row, y) => [...row].forEach((c, x) => c === '1' && put(14 + x, 28 + y, '#d82020')));
     }
@@ -469,6 +469,10 @@ function pxPortrait(key){
     rect(ex - 2, 14, ex + 1, 14, H[3]);
   }
   put(16, 20, skin[2]);
+  if (S.coat){                                                              // plášť (profesor): bílé klopy přes košili
+    for (let y = 27; y < 32; y++){ rect(4, y, 12 - (y - 27), y, S.coat); rect(20 + (y - 27), y, 28, y, S.coat); }
+  }
+  if (S.beard) ell(16, 22.5, 5, 3, S.beard, false);
   rect(14, 23, 18, 23, S.lips || '#9a5a4a'); put(13, 22, S.lips || '#9a5a4a'); put(19, 22, S.lips || '#9a5a4a');
   if (S.earring){ put(7, 20, S.earring); put(25, 20, S.earring); }
   // vlasy vpředu / pokrývky hlavy
