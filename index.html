@@ -1336,6 +1336,7 @@ body.ds #dsTopBar, body.ds #dsHint{
   color:#cfd2dc; text-shadow:0 2px 0 #000; white-space:nowrap; overflow:hidden; pointer-events:none;
   -webkit-font-smoothing:none;
 }
+body.ds #dsTopBar, body.ds #dsHint{ display:none !important; }
 body.ds #dsTopBar{ top:var(--oy); height:var(--ty); height:calc(var(--ty) - var(--oy)); }
 body.ds #dsHint{ top:calc(var(--by) + var(--bh)); height:var(--botbar); font-size:calc(var(--tw) / 60); gap:2px; letter-spacing:0; }
 #dsHint kbd{ font:inherit; color:#fff; background:#3a3a46; padding:.15em .4em .05em; margin:0 .15em; box-shadow:0 2px 0 #000; }
@@ -1352,7 +1353,12 @@ body.ds #dsPanel{
   font-family:var(--font-body); -webkit-font-smoothing:none;
   overflow:hidden;
 }
-body.ds.theme-dark #dsPanel{ background:#14142a; }
+/* tmavé téma v DS: neutrální šedá sladěná s gunmetal konzolí (místo modrofialové) */
+body.ds.theme-dark{
+  --w-bg:#17171b; --w-panel:#1d1d22; --w-card:#232329; --w-card-h:#2c2c33; --w-line:#2a2a30;
+  --w-track:#2e2e35; --w-overlay:transparent;
+}
+body.ds.theme-dark #dsPanel{ background:var(--w-bg); }
 body.ds.hunting #dsPanel, body.ds.bossing #dsPanel{ visibility:hidden; }
 .dsp-head{ display:flex; align-items:flex-start; gap:10px; }
 .dsp-loc{ flex:1; display:flex; flex-direction:column; gap:2px; min-width:0; }
@@ -1571,35 +1577,38 @@ body.ds .coin-float{ zoom:var(--pz); }
 
 /* načítací obrazovka */
 #loader{
-  position:fixed; inset:0; z-index:1000;
-  display:flex; flex-direction:column; align-items:center; justify-content:center; gap:22px;
+  position:fixed; inset:0; z-index:1000; overflow:hidden;
+  display:flex; flex-direction:column; align-items:center; justify-content:center; gap:20px;
   background:#000; color:#fff;
   font-family:'Silkscreen', monospace; -webkit-font-smoothing:none;
   transition:opacity .6s steps(6);
 }
 #loader.done{ opacity:0; pointer-events:none; }
-#loaderBall{ width:72px; height:72px; image-rendering:pixelated; animation:ballRoll 1.6s steps(16) infinite; }
-@keyframes ballRoll{
-  0%{ transform:translateX(-60px) rotate(-360deg); }
-  50%{ transform:translateX(60px) rotate(0deg); }
-  100%{ transform:translateX(-60px) rotate(-360deg); }
-}
+.loader-stage{ position:relative; width:100%; height:240px; }
+#loaderBall{ position:absolute; left:50%; bottom:20px; width:64px; height:64px; margin-left:-32px; image-rendering:pixelated; }
+#loaderShadow{ position:absolute; left:50%; bottom:14px; width:60px; height:10px; margin-left:-30px; background:#2a2a32; border-radius:50%; }
+.loader-ground{ position:absolute; left:0; right:0; bottom:16px; height:2px; background:#1c1c22; }
 .loader-text{ font-size:20px; letter-spacing:.3em; animation:loadBlink 1s steps(2) infinite; }
 .loader-status{ font-size:11px; letter-spacing:.1em; color:#8a8aa0; text-transform:uppercase; }
 @keyframes loadBlink{ 50%{ opacity:.35; } }
 </style>
 </head>
 <body>
-<!-- načítací obrazovka: kutálející se pokéball; zmizí, až je hra připravená (ds.js) -->
+<!-- načítací obrazovka: hozený pokéball se odráží a kutálí přes obrazovku; zmizí, až je hra připravená (ds.js) -->
 <div id="loader">
-  <canvas id="loaderBall" width="16" height="16"></canvas>
+  <div class="loader-stage">
+    <i id="loaderShadow"></i>
+    <canvas id="loaderBall" width="16" height="16"></canvas>
+    <i class="loader-ground"></i>
+  </div>
   <div class="loader-text">LOADING</div>
   <div class="loader-status" id="loaderStatus">aktualizace…</div>
 </div>
 <script>
-/* pixelový pokéball pro načítání – kreslí se hned, ještě než se načte zbytek hry */
+/* pixelový pokéball + jednoduchá fyzika: hod ze vzduchu, odrazy se ztrátou energie, kutálení
+   (běží hned, ještě než se načte zbytek hry; skončí, až loader zmizí) */
 (() => {
-  const c = document.getElementById('loaderBall').getContext('2d'), n = 16, r = n / 2;
+  const cv = document.getElementById('loaderBall'), c = cv.getContext('2d'), n = 16, r = n / 2;
   for (let y = 0; y < n; y++) for (let x = 0; x < n; x++){
     const dx = x + .5 - r, dy = y + .5 - r, d = Math.hypot(dx, dy);
     if (d > r - .1) continue;
@@ -1608,6 +1617,32 @@ body.ds .coin-float{ zoom:var(--pz); }
     if (Math.hypot(x + .5 - 5, y + .5 - 4) < 1.2) col = '#ffffff';
     c.fillStyle = col; c.fillRect(x, y, 1, 1);
   }
+  const shadow = document.getElementById('loaderShadow');
+  const G = 1500, BOUNCE = 0.62, SIZE = 64;
+  let x, h, vx, vh, rot, last = performance.now();
+  const reset = () => { x = -innerWidth / 2 - SIZE; h = 170; vx = 300; vh = 120; rot = 0; };
+  reset();
+  const step = now => {
+    if (!document.getElementById('loader')) return;
+    const dt = Math.min(0.05, (now - last) / 1000); last = now;
+    vh -= G * dt; h += vh * dt;
+    if (h <= 0){                                   // dopad: odraz se ztrátou energie, pak už jen kutálení
+      h = 0; vh = -vh * BOUNCE; vx *= 0.92;
+      if (vh < 60) vh = 0;
+    }
+    if (h === 0 && vh === 0) vx = Math.max(120, vx * (1 - 0.25 * dt));
+    x += vx * dt;
+    rot += vx * dt / (SIZE / 2);                   // valení: úhel = dráha / poloměr
+    if (x > innerWidth / 2 + SIZE) reset();
+    const px = Math.round(x / 4) * 4, ph = Math.round(h / 4) * 4;          // po pixelech (retro)
+    const deg = Math.round(rot * 180 / Math.PI / 22.5) * 22.5;
+    cv.style.transform = `translate(${px}px, ${-ph}px) rotate(${deg}deg)`;
+    const k = Math.max(0.25, 1 - h / 260);
+    shadow.style.transform = `translateX(${px}px) scaleX(${k.toFixed(2)})`;
+    shadow.style.opacity = (0.15 + 0.4 * k).toFixed(2);
+    requestAnimationFrame(step);
+  };
+  requestAnimationFrame(step);
 })();
 </script>
 <div class="scene-shell" id="shell">
@@ -1897,8 +1932,8 @@ function setRow(btn, label, value, on = true){
    Téma: retro (výchozí) nebo tmavé. --zoom zvětší celé UI podle displeje
    (na velkém monitoru nebo na Foldu ať není všechno drobné). */
 const THEME_KEY = 'pokeIdle.theme';
-let theme = 'retro';
-try { if (localStorage.getItem(THEME_KEY) === 'dark') theme = 'dark'; } catch {}
+let theme = 'dark';   // výchozí tmavé (sladěné s DS kabátkem)
+try { if (localStorage.getItem(THEME_KEY) === 'retro') theme = 'retro'; } catch {}
 const themeBtn = document.getElementById('themeBtn');
 function applyTheme(){
   document.body.classList.toggle('theme-dark', theme === 'dark');

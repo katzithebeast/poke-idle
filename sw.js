@@ -6,7 +6,7 @@
    Sprity pokémonů (raw.githubusercontent.com): nejdřív cache – jednou
    stažený sprite už se nestahuje znovu a funguje bez internetu.
    ===================================================================== */
-const APP_CACHE = 'poke-idle-app-v4';
+const APP_CACHE = 'poke-idle-app-v5';
 const SPRITE_CACHE = 'poke-idle-sprites-v1';
 const NET_TIMEOUT = 10000;
 

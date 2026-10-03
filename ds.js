@@ -312,6 +312,29 @@ layoutBtn.addEventListener('click', () => {
   updateLayoutBtn();
 });
 
+/* ---------- Otáčení: výchozí zamčené na šířku (DS kabátek), v Nastavení jde povolit ---------- */
+let orientLock = true;
+try { orientLock = localStorage.getItem('pokeIdle.orient') !== 'free'; } catch {}
+const orientBtn = document.createElement('button');
+orientBtn.className = 'set-row';
+orientBtn.title = 'Zamknout hru na šířku (rozložený Fold), nebo nechat otáčet';
+layoutBtn.after(orientBtn);
+function applyOrient(){
+  setRow(orientBtn, 'Otáčení obrazovky', orientLock ? 'jen na šířku' : 'volné', orientLock);
+  const so = window.Capacitor?.Plugins?.ScreenOrientation;
+  try {
+    if (so) (orientLock ? so.lock({ orientation: 'landscape' }) : so.unlock()).catch?.(() => {});
+    else if (orientLock) screen.orientation?.lock?.('landscape').catch(() => {});   // prohlížeč: jen v celé obrazovce
+    else screen.orientation?.unlock?.();
+  } catch {}
+}
+orientBtn.addEventListener('click', () => {
+  orientLock = !orientLock;
+  try { localStorage.setItem('pokeIdle.orient', orientLock ? 'lock' : 'free'); } catch {}
+  applyOrient();
+});
+applyOrient();
+
 // Android (APK): systémové tlačítko Zpět = B; na hlavní obrazovce aplikaci jen schová
 try {
   window.Capacitor?.Plugins?.App?.addListener('backButton', () => {
