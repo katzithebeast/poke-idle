@@ -531,6 +531,56 @@ async function openBall(type){
   showReveal(rec, res.r, type);
 }
 
+let revealDone = null;      // showCatch čeká, až hráč oslavu zavře
+/* oslava chycení: paprsky v barvě vzácnosti, velký animovaný sprite, hvězdy, level, typy, „Nový v deníku!“ */
+function showCatch(mon, news, ball){
+  const r = monRarity(mon.id), R = RARITIES[r];
+  revealEl.style.setProperty('--rc', R.color);
+  revealEl.classList.add('catch');
+  revealCard.innerHTML = `
+    <div class="reveal-head"><span class="rtag" style="--rc:${R.color}">${R.name}</span>${mon.shiny ? `<span class="rtag" style="--rc:var(--gold-lo)">${STAR} Shiny</span>` : ''}</div>
+    <div class="reveal-stage" data-name="Gotcha! ${NAMES[mon.id - 1]} je chycen!"><img alt="" src="${spriteUrl(mon.id, { shiny: mon.shiny })}"></div>
+    <div class="reveal-name">${mon.shiny ? STAR : ''}${NAMES[mon.id - 1]} <small>#${pad3(mon.id)} · Lv ${mon.lvl}</small></div>
+    <div class="reveal-stars">${qstars(mon.stars || 1)}</div>
+    <div class="reveal-types">${monTypes(mon.id).map(t => `<span class="type" style="background:${TYPE_COLORS[t] || '#888'}">${t}</span>`).join('')}</div>
+    <span class="reveal-badge ${news ? '' : 'old'}">${news === 'shiny' ? 'Nový shiny v deníku!' : news === 'new' ? 'Nový v deníku!' : 'Další kopie do sbírky'}</span>
+    <div class="reveal-info"><img alt="" src="${BALL_ICON[ball]}" style="width:14px;height:14px;image-rendering:pixelated;vertical-align:-2px"> Chycen do: ${BALL_TYPES[ball].name}. Najdeš ho v Týmu.</div>
+    <div class="case-actions"><button class="pbtn red" data-rv="ok">Super!</button></div>`;
+  revealCard.querySelector('.reveal-stage').style.backgroundImage = `url(${pxSpotlight(R.color)})`;
+  revealEl.classList.add('open');
+  revealCard.style.animation = 'none'; void revealCard.offsetWidth; revealCard.style.animation = '';
+  const st = revealCard.querySelector('.reveal-stage img');
+  st.animate([{ transform: 'scale(.2)', filter: 'brightness(0) invert(1)' }, { transform: 'scale(1.1)', filter: 'brightness(0) invert(1)', offset: 0.6 }, { transform: 'scale(1)', filter: 'none' }],
+    { duration: 650, easing: 'ease-out' });
+  [523, 659, 784, 1047, 784, 1047].forEach((f, i) => beep(f, i > 3 ? 0.2 : 0.1, 0.05, 'square', i * 0.11));
+  if (mon.shiny || r === 4){
+    const f = document.createElement('div');
+    f.className = 'screen-flash';
+    document.body.appendChild(f);
+    f.animate([{ opacity: 0.9 }, { opacity: 0 }], { duration: 600, easing: 'steps(6)' }).finished.then(() => f.remove());
+  }
+  confetti(R.color, 24 + r * 8);
+  if (mon.shiny || news) sparkleAt(revealCard.querySelector('.reveal-stage'), mon.shiny ? 20 : 10);
+  revealCard.onclick = (ev) => { if (ev.target.closest('[data-rv]')) closeReveal(); };
+  return new Promise(res => { revealDone = res; });
+}
+document.head.insertAdjacentHTML('beforeend', `<style>
+/* DS: oslava chycení – velký pokémon v záři přes celý horní displej, info dole */
+body.ds .reveal.catch .reveal-stage{
+  position:fixed; z-index:34; margin:0; background-size:cover;
+  left:calc(var(--tx) / var(--dsk)); top:calc(var(--ty) / var(--dsk));
+  width:calc(var(--tw) / var(--dsk)); height:calc(var(--th) / var(--dsk));
+}
+body.ds .reveal.catch .reveal-stage img{ height:66%; margin-bottom:9%; }
+body.ds .reveal.catch .reveal-stage::after{
+  content:attr(data-name); position:absolute; left:50%; top:10px; transform:translateX(-50%);
+  font:700 16px var(--font-title); letter-spacing:.06em; color:#fff; text-shadow:var(--outline); white-space:nowrap;
+}
+body.ds .reveal.catch .reveal-card{ display:flex; flex-direction:column; justify-content:center; gap:6px; }
+body.ds .reveal.catch .reveal-name{ font-size:20px; }
+body.ds .reveal.catch .reveal-badge{ font-size:11px; align-self:center; }
+</style>`);
+
 /* velké odhalení výhry: paprsky v barvě vzácnosti, animovaný sprite, konfety */
 function showReveal(rec, r, type){
   const R = RARITIES[r], e = dex[rec.id];
@@ -573,7 +623,8 @@ function showReveal(rec, r, type){
   };
 }
 function closeReveal(){
-  revealEl.classList.remove('open');
+  revealEl.classList.remove('open', 'catch');
+  const done = revealDone; revealDone = null; done?.();
   revealEl.querySelectorAll('.confetti').forEach(c => c.remove());
   revealCard.onclick = null;
 }
@@ -607,9 +658,14 @@ const huntHud = document.getElementById('huntHud');
 const fadeTo = to => fade.animate([{ opacity: 1 - to }, { opacity: to }],
   { duration: to ? 300 : 400, easing: 'steps(5)', fill: 'forwards' }).finished;
 
+// vzhled trenéra (Nastavení): originální Red zezadu, nebo vlastní pixelová postava
+let trainerLook = 'red';
+try { if (localStorage.getItem('pokeIdle.trainerLook') === 'pixel') trainerLook = 'pixel'; } catch {}
 function setupTrainer(ballType){
+  const red = trainerLook === 'red' && redBackSprite();
+  trainerBox.dataset.half = red ? '1' : '';
   // vržený stín stejně jako u pokémonů (projectShadow z index.html), zem = nejnižší neprůhledný řádek
-  const sprite = pxTrainerSprite(ballType, (d, W, H) => {
+  const sprite = red || pxTrainerSprite(ballType, (d, W, H) => {
     let ground = H - 1;
     while (ground > 0 && ![...Array(W).keys()].some(x => d[(ground * W + x) * 4 + 3] > 127)) ground--;
     return projectShadow((x, y) => d[(y * W + x) * 4 + 3] > 127, W, H, ground);
@@ -765,7 +821,8 @@ async function throwBall(){
 
   const unit = arenaPixelSize();
   const tr = trainerBox.querySelector('.pokemon').getBoundingClientRect();
-  const start = worldPoint(tr.left + TRAINER_RELEASE[0] / TRAINER_W * tr.width, tr.top + TRAINER_RELEASE[1] / TRAINER_H * tr.height);
+  const rel = tp.sprite.release || TRAINER_RELEASE;
+  const start = worldPoint(tr.left + rel[0] / tp.sprite.W * tr.width, tr.top + rel[1] / tp.sprite.H * tr.height);
   const monEl = enemyBox.querySelector('.pokemon');
   const er = monEl.getBoundingClientRect();
   const bb = spriteBBox(enemyBox) || { W: 96, H: 96, cx: 48, cy: 56 };
@@ -842,9 +899,9 @@ async function throwBall(){
     gameEvent('catch', { id: h.id, shiny: h.shiny });
     if (h.track) shop.hunts = shop.hunts.filter(x => x.uid !== h.track);
     saveShop();
-    toast(`Gotcha! ${NAMES[h.id - 1]} (${mon.stars}★, Lv ${mon.lvl}) je chycen${news === 'new' ? ' – nový v deníku!' : news === 'shiny' ? ' – nový shiny v deníku!' : '!'}`, h.shiny);
     renderHuntHud('Chyceno!');
-    await wait(2200);
+    await wait(1100);
+    await showCatch(mon, news, h.ball);
     endCatch('caught');
   } else {
     // vysmekl se: záblesk, ball zmizí, pokémon vyskočí zpátky

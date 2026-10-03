@@ -242,7 +242,7 @@ function pxTrainerSprite(ballType = 'poke', shadowFn = null){
   return {
     W: TRAINER_W, H: TRAINER_H, frames, data, delays,
     shadows: data.map(d => shadowFn ? shadowFn(d, TRAINER_W, TRAINER_H) : empty),
-    idle: [0, 1], action: [2, 5], method: 'trenér',
+    idle: [0, 1], action: [2, 5], method: 'trenér', release: TRAINER_RELEASE,
     releaseMs: delays[2] + delays[3],          // ball se pustí na začátku snímku "throw"
   };
 }
@@ -649,4 +649,40 @@ function pxBust(key){
   c.width = c.height = N;
   c.getContext('2d').putImageData(new ImageData(buf, N, N), 0, 0);
   return c;
+}
+
+/* ---------- Originální Red zezadu (FireRed/LeafGreen, pret/pokefirered) ----------
+   5 snímků 64 × 64 pod sebou: klid, nápřah, nápřah 2, hod, dohoz. Bitevní sprite je
+   useknutý v pase – stojí v dolním rohu horního displeje jako v originálních hrách. */
+let RED_BACK = null;
+const RED_BACK_READY = new Promise(res => {
+  const img = new Image();
+  img.onload = () => {
+    try {
+      const frames = [], data = [];
+      for (let i = 0; i < 5; i++){
+        const c = document.createElement('canvas');
+        c.width = c.height = 64;
+        const g = c.getContext('2d');
+        g.drawImage(img, 0, -i * 64);
+        frames.push(c); data.push(g.getImageData(0, 0, 64, 64).data);
+      }
+      RED_BACK = { frames, data };
+    } catch {}
+    res();
+  };
+  img.onerror = () => res();
+  img.src = 'assets/trainers/red_back.png';
+});
+function redBackSprite(){
+  if (!RED_BACK) return null;
+  const order = [0, 0, 1, 2, 3, 4];
+  const delays = [700, 700, 110, 130, 90, 260];
+  const empty = document.createElement('canvas');
+  empty.width = empty.height = 1;
+  return {
+    W: 64, H: 64, frames: order.map(i => RED_BACK.frames[i]), data: order.map(i => RED_BACK.data[i]), delays,
+    shadows: order.map(() => empty), idle: [0, 1], action: [2, 5], method: 'red', half: true,
+    releaseMs: delays[2] + delays[3], release: [58, 26],
+  };
 }

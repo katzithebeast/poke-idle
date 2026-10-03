@@ -425,6 +425,17 @@ dexSizeBtn.addEventListener('click', () => {
   applyDexSize();
 });
 applyDexSize();
+const lookBtn = document.createElement('button');
+lookBtn.className = 'set-row';
+lookBtn.title = 'Jak vypadá trenér při chytání';
+dexSizeBtn.after(lookBtn);
+const updateLookBtn = () => setRow(lookBtn, 'Trenér', trainerLook === 'red' ? 'Red (originál)' : 'pixelový');
+lookBtn.addEventListener('click', () => {
+  trainerLook = trainerLook === 'red' ? 'pixel' : 'red';
+  try { localStorage.setItem('pokeIdle.trainerLook', trainerLook); } catch {}
+  updateLookBtn();
+});
+updateLookBtn();
 orientBtn.addEventListener('click', () => {
   orientLock = !orientLock;
   try { localStorage.setItem('pokeIdle.orient', orientLock ? 'lock' : 'free'); } catch {}

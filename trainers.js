@@ -166,11 +166,12 @@ function trainerNext(){
     closeFight();
     await showDialog([...tr.lose.map(t => tLine(tr, t)), pLine(pick(PLAYER_LINES.win))]);
     toast(`Výhra nad ${tr.name}! Odměna: ${rewardText(reward)}`, true);
-    endTrainer();
+    endTrainer(true);
   }, 1400);
 }
-function endTrainer(){
+function endTrainer(won = false){
   const c = battle.trainerCtx;
+  hideoutStep(won);
   delete battle.trainerCtx;
   battle.enemy = c?.prevEnemy?.hp > 0 && !c.prevEnemy.trainer ? c.prevEnemy : wildMon();
   saveBattle();
@@ -185,7 +186,7 @@ async function leaveTrainer(){
   const tr = battle.trainerCtx && TRAINERS[battle.trainerCtx.t];
   closeFight();
   if (tr) await showDialog(tr.flee.map(t => tLine(tr, t)));
-  await fadeTo(1); endTrainer(); await fadeTo(0);
+  await fadeTo(1); endTrainer(false); await fadeTo(0);
 }
 
 trainerCall.querySelector('button').addEventListener('click', startTrainer);
@@ -238,3 +239,33 @@ body.ds .dialog{
 body.ds.dialoging #dsPanel, body.ds.dialoging .manual-panel{ visibility:hidden; }
 .dsp-trainer{ background:#3a2a5a !important; color:#fff !important; animation:bossPulse 1.2s steps(2) infinite !important; }
 </style>`);
+
+/* ---------- Skrýš Team Rocket (mapa): 3 souboje za sebou, 1× denně ---------- */
+function startHideout(){
+  if (battle.trainerCtx || hunt || bossFight) return;
+  const execs = [4, 5, 6, 7];
+  battle.hideout = { i: 0, list: [2, 3, execs[Math.floor(Math.random() * execs.length)]] };
+  battle.challenge = { t: battle.hideout.list[0], until: Date.now() + 10 * 60e3 };
+  toast('Vnikl jsi do skrýše Team Rocket! (souboj 1/3)', true);
+  startTrainer();
+}
+function hideoutStep(won){
+  const h = battle.hideout;
+  if (!h) return;
+  if (!won){ delete battle.hideout; toast('Ze skrýše jsi utekl. Zkus to zase zítra.'); progress.hideoutDay = new Date().toDateString(); saveProgress(); return; }
+  h.i++;
+  if (h.i < h.list.length){
+    battle.challenge = { t: h.list[h.i], until: Date.now() + 10 * 60e3 };
+    setTimeout(() => {
+      if (!guardReady()){ delete battle.hideout; delete battle.challenge; progress.hideoutDay = new Date().toDateString(); saveProgress(); updateTrainerCall(); return; }
+      toast(`Hlouběji ve skrýši… (souboj ${h.i + 1}/3)`, true); startTrainer();
+    }, 1600);
+    return;
+  }
+  delete battle.hideout;
+  progress.hideoutDay = new Date().toDateString(); saveProgress();
+  const tier = ARENA_ORDER.indexOf(arena) + 1;
+  const reward = { coins: 800 * tier + 1000, lures: { ultra: 1 }, balls: { ultra: 3 }, items: { candy: 2 } };
+  if (Math.random() < 0.25) reward.balls.master = 1;
+  setTimeout(() => { giveReward(reward); toast(`Skrýš vyčištěna! Odměna: ${rewardText(reward)}`, true); }, 1200);
+}

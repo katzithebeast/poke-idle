@@ -1629,6 +1629,24 @@ body.ds .pad-slot{ display:block; }
 
 .ball-pick{ flex:1; justify-content:center; }
 .ball-pick img{ width:16px; height:16px; image-rendering:pixelated; }
+
+/* DS detail v deníku: nahoře velký vycentrovaný animovaný pokémon v záři, dole všechny informace */
+body.ds .detail-box{ display:grid !important; grid-template-columns:1fr 1fr; column-gap:12px; align-content:start; }
+body.ds .dd-left{ position:static !important; display:block !important; width:auto !important; height:auto !important; padding:0 !important; background:none !important; overflow:visible !important; }
+body.ds .dd-left > *{ grid-column:auto; }
+body.ds .detail-box .detail-stage{
+  position:fixed; z-index:34; margin:0 !important; box-shadow:none !important;
+  left:calc(var(--tx) / var(--dsk)); top:calc(var(--ty) / var(--dsk));
+  width:calc(var(--tw) / var(--dsk)); height:calc(var(--th) / var(--dsk)) !important;
+  background-size:cover !important;
+}
+body.ds .detail-box .detail-stage img{ height:66% !important; margin-bottom:9% !important; }
+body.ds .detail-stage::after{
+  content:attr(data-name); position:absolute; left:50%; top:10px; transform:translateX(-50%);
+  font:700 16px var(--font-title); letter-spacing:.06em; color:#fff; text-shadow:var(--outline); white-space:nowrap;
+}
+body.ds .dd-copy-stage{ display:none; }
+body.ds .dd-right{ padding-top:0; }
 </style>
 </head>
 <body>
@@ -2095,7 +2113,7 @@ const snapTo = (v, step) => Math.max(step, Math.round(v / step) * step);
 
 // násobek velikosti spritu (v pixelech arény) podle předvolby
 function spriteScaleFor(box, natH){
-  if (box.dataset.trainer) return 1;         // trenér je kreslený přímo v pixelech arény
+  if (box.dataset.trainer) return box.dataset.half ? 2 : 1;   // pixelový trenér 1:1, originální bitevní sprite 2× (jako zezadu pokémoni)
   const back = box.id === 'playerBox';
   const native = back ? 2 : 1;               // BW: sprity zezadu jsou 2×
   if (sizePreset === 'default') return native;
@@ -2329,6 +2347,7 @@ function applyMon(box){
   box.style.left   = left   != null ? left + '%'   : '';
   box.style.bottom = bottom != null ? bottom + '%' : '';
   box.style.setProperty('--scale', box.dataset.trainer ? 1 : l.scale ?? 1);
+  if (box.dataset.half){ box.style.bottom = '4.5%'; box.style.left = (parseFloat(box.style.left) || 22) - 4 + '%'; }   // bitevní sprite useknutý v pase → k dolnímu okraji
 
   const el = box.querySelector('.pokemon');
   const nat = el.tagName === 'CANVAS' ? el.width : el.naturalWidth;
@@ -3320,6 +3339,7 @@ function openDetail(id, shiny, copyIdx = 0){
   document.getElementById('detailImg').src = spriteUrl(id, { shiny });
   document.querySelector('.detail-stage').style.backgroundImage = `url(${pxSpotlight(TYPE_COLORS[types[0]] || '#e8a050')})`;
   document.getElementById('detailTypes').innerHTML = typeChips(id);
+  document.querySelector('.detail-stage').dataset.name = `#${pad3(id)} ${NAMES[id - 1]}`;
   const fmt = ts => new Date(ts).toLocaleDateString('cs-CZ');
   document.getElementById('detailInfo').innerHTML =
     `Poprvé chycen ${e.caught ? fmt(e.caught) : '—'} · shiny ${e.shiny ? 'od ' + fmt(e.shiny) : 'zatím ne'}<br>` +
