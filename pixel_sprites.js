@@ -410,3 +410,87 @@ function pxItemIcon(key){
     return pxShade([pxMixHex(hue, '#ffffff', 0.4), hue, pxMixHex(hue, '#000000', 0.4)], dx / 5, (dy - 1) / 4.6);
   });
 }
+
+/* ---------- Portréty do dialogů (32 × 32, zepředu) ----------
+   Hráč (červená kšiltovka, světle hnědé vlasy, černá mikina) a trenéři Team Rocket.
+   Stejný styl jako trenér: 3 tóny na materiál + tmavá linka v odstínu materiálu. */
+const PORTRAITS = {
+  player:  { hair: ['#f8dcaa', '#dcae72', '#a8783e', '#5e3c18'], style: 'cap', hat: ['#ff7a68', '#dc3432', '#962030', '#4e0c16'],
+             outfit: ['#5a5a70', '#30303e', '#1e1e28', '#0e0e14'], eyes: '#3a2a1a' },
+  jessie:  { hair: ['#ff8ab0', '#e04a7a', '#a02852', '#4e0a24'], style: 'jessie', outfit: 'rocket', eyes: '#2a6a8a', lips: '#e04a6a', earring: '#4ad86a' },
+  james:   { hair: ['#c8b8ff', '#8a78d8', '#5a4aa8', '#2a1e5a'], style: 'james', outfit: 'rocket', eyes: '#3a5a2a' },
+  butch:   { hair: ['#8ae0a0', '#3aa868', '#1e6a3e', '#0a3018'], style: 'short', outfit: 'rocket-black', eyes: '#2a2a3a' },
+  cassidy: { hair: ['#fff2a8', '#f2c84a', '#b88a1a', '#5a3e08'], style: 'puffy', outfit: 'rocket-black', eyes: '#6a2a8a', lips: '#e05a7a' },
+  grunt:   { hair: ['#6a5a50', '#3e322c', '#241c18', '#0e0a08'], style: 'rocketcap', hat: ['#4a4a5a', '#24242e', '#141418', '#060608'],
+             outfit: 'rocket-black', eyes: '#1a1a1a' },
+};
+function pxPortrait(key){
+  const S = PORTRAITS[key] || PORTRAITS.grunt, N = 32;
+  const buf = new Uint8ClampedArray(N * N * 4);
+  const put = (x, y, col) => {
+    x = Math.round(x); y = Math.round(y);
+    if (x < 0 || y < 0 || x >= N || y >= N || !col) return;
+    const [r, g, b, a] = pxHex(col), i = (y * N + x) * 4;
+    buf[i] = r; buf[i + 1] = g; buf[i + 2] = b; buf[i + 3] = a;
+  };
+  const shade = (pal, nx, ny) => pxShade(pal, nx, ny, 0.7, 0.15);
+  const ell = (cx, cy, rx, ry, pal, line = true, clip) => {
+    for (let y = Math.floor(cy - ry - 1); y <= cy + ry + 1; y++) for (let x = Math.floor(cx - rx - 1); x <= cx + rx + 1; x++){
+      if (clip && !clip(x, y)) continue;
+      const nx = (x + 0.5 - cx) / rx, ny = (y + 0.5 - cy) / ry;
+      if (nx * nx + ny * ny <= 1) put(x, y, shade(pal, nx, ny));
+      else if (line && ((x + 0.5 - cx) / (rx + 1)) ** 2 + ((y + 0.5 - cy) / (ry + 1)) ** 2 <= 1) put(x, y, pal[3]);
+    }
+  };
+  const rect = (x0, y0, x1, y1, col) => { for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) put(x, y, col); };
+  const skin = ['#ffe4cf', '#f2c4a0', '#cc9474', '#7a4a32'];
+  const rocket = S.outfit === 'rocket' ? ['#ffffff', '#e2e2ec', '#a8a8bc', '#4a4a5a'] : S.outfit === 'rocket-black' ? ['#5a5a6a', '#2c2c36', '#1a1a22', '#08080c'] : S.outfit;
+  // ramena / oblečení
+  ell(16, 34, 15, 7, rocket);
+  if (S.outfit === 'player' || key === 'player'){ ell(16, 27.5, 7, 2.2, ['#7a7a90', '#4c4c5c', '#30303c', '#14141a']); }   // stažená kapuce
+  if (S.outfit !== rocket || key !== 'player'){
+    if (key !== 'player'){ // velké červené R na hrudi
+      const R = ['111', '101', '110', '101'];
+      R.forEach((row, y) => [...row].forEach((c, x) => c === '1' && put(14 + x, 28 + y, '#d82020')));
+    }
+  }
+  // vlasy vzadu (dlouhé účesy)
+  const H = S.hair;
+  if (S.style === 'jessie'){ ell(16, 15, 13, 12, H); ell(26, 22, 5, 9, H); ell(27, 30, 4, 3, H); }
+  if (S.style === 'puffy'){ ell(8, 20, 5, 7, H); ell(24, 20, 5, 7, H); }
+  if (S.style === 'james'){ ell(16, 13, 11, 9, H); }
+  // krk a hlava
+  rect(14, 25, 18, 27, skin[2]);
+  ell(7.5, 17, 1.6, 2.4, skin); ell(24.5, 17, 1.6, 2.4, skin);           // uši
+  ell(16, 16.5, 8.2, 9.2, skin);
+  // oči, obočí, nos, pusa
+  for (const ex of [12, 20]){
+    rect(ex - 1, 16, ex, 18, S.eyes); put(ex - 1, 16, '#ffffff');
+    rect(ex - 2, 14, ex + 1, 14, H[3]);
+  }
+  put(16, 20, skin[2]);
+  rect(14, 23, 18, 23, S.lips || '#9a5a4a'); put(13, 22, S.lips || '#9a5a4a'); put(19, 22, S.lips || '#9a5a4a');
+  if (S.earring){ put(7, 20, S.earring); put(25, 20, S.earring); }
+  // vlasy vpředu / pokrývky hlavy
+  if (S.style === 'cap' || S.style === 'rocketcap'){
+    const hat = S.hat;
+    ell(16, 9, 10, 6, hat, true, (x, y) => y <= 11);
+    rect(5, 11, 27, 12, hat[2]); rect(4, 12, 28, 12, hat[3]);              // kšilt
+    if (S.style === 'rocketcap') [[15, 6], [16, 6], [15, 7], [17, 7], [15, 8], [16, 8], [15, 9], [17, 9]].forEach(([x, y]) => put(x, y, '#e02828'));
+    else rect(13, 6, 19, 9, '#ffffff');                                     // bílý předek čepice
+    for (const [x, len] of [[8, 4], [10, 3], [22, 3], [24, 4]]) rect(x, 13, x + 1, 13 + len, H[1]);   // vlasy pod čepicí
+    rect(13, 13, 14, 14, H[1]); rect(18, 13, 19, 14, H[1]);
+  } else if (S.style === 'jessie'){
+    ell(16, 9, 9, 5, H); ell(10, 11, 4, 3, H); ell(23, 10, 4, 4, H);
+  } else if (S.style === 'james'){
+    ell(14, 9, 9, 5, H); ell(9, 13, 3, 4, H); ell(21, 11, 5, 3, H);
+  } else if (S.style === 'puffy'){
+    ell(16, 8, 9, 5, H); ell(10, 11, 3, 3, H); ell(22, 11, 3, 3, H);
+  } else {
+    ell(16, 8.5, 9, 4.5, H); for (let x = 8; x <= 24; x += 3) rect(x, 11, x, 13, H[1]);
+  }
+  const c = document.createElement('canvas');
+  c.width = c.height = N;
+  c.getContext('2d').putImageData(new ImageData(buf, N, N), 0, 0);
+  return c;
+}

@@ -291,6 +291,7 @@ function moveFocus(dir){
 
 /* ---------- Tlačítka konzole ---------- */
 function pressA(){
+  if (dialogRun) return dialogRun.next();   // rozhovor (trainers.js)
   const L = topLayer();
   if (L === dsPanel && !$('dspBoss').hidden && (!focused || focused === $('dspBoss'))) return startBoss();
   if (L === manualPanel){ ensureFocus(); return focused && L.contains(focused) ? focused.click() : takeTurn('attack'); }
@@ -300,6 +301,7 @@ function pressA(){
   else if (bossFight) bossPlayerAttack();
 }
 function pressB(){
+  if (dialogRun) return dialogRun.next();
   if (evoRun){ evoRun.cancelled = true; return; }
   const L = topLayer();
   if (L === manualPanel) return takeTurn('guard');
