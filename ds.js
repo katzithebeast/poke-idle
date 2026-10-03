@@ -10,9 +10,16 @@
    ===================================================================== */
 
 const SKIN = { w: 2176, h: 1812 };
-// bílá plocha displejů v kabátku (změřeno) + 1 px rezerva, ať nikde neprosvítá okraj
-const SCREEN_TOP = { x: 664, y: 109, w: 848, h: 638 };
-const SCREEN_BOT = { x: 664, y: 1053, w: 848, h: 638 };
+// kabátky (Nastavení → Kabátek): obrázek 2176 × 1812 + bílá plocha displejů (změřeno, +1 px rezerva)
+const SKINS = {
+  gunmetal: { name: 'gunmetal', file: 'assets/ds_skin.jpg',
+    top: { x: 664, y: 109, w: 848, h: 638 }, bot: { x: 664, y: 1053, w: 848, h: 638 } },
+  matte: { name: 'matný', file: 'assets/ds_skin_matte.jpg',
+    top: { x: 665, y: 108, w: 847, h: 640 }, bot: { x: 665, y: 1056, w: 847, h: 635 } },
+};
+let skinKey = 'gunmetal';
+try { const v = localStorage.getItem('pokeIdle.skin'); if (SKINS[v]) skinKey = v; } catch {}
+let SCREEN_TOP = SKINS[skinKey].top, SCREEN_BOT = SKINS[skinKey].bot;
 const MIDDLE = { x: 540, w: 1100 };   // pás mezi D-padem a ABXY – tam se otevírají okna
 // tlačítka konzole (v pixelech obrázku): střed + poloměr dotykové plochy
 const DS_BUTTONS = {
@@ -91,6 +98,9 @@ function layoutDs(){
   const on = wantDs();
   document.body.classList.toggle('ds', on);
   if (!on) return;
+  const skin = SKINS[skinKey];
+  SCREEN_TOP = skin.top; SCREEN_BOT = skin.bot;
+  dsEl.style.backgroundImage = `url(${skin.file})`;
   const s = Math.min(innerWidth / SKIN.w, innerHeight / SKIN.h);
   const ox = (innerWidth - SKIN.w * s) / 2, oy = (innerHeight - SKIN.h * s) / 2;
   const R = document.documentElement.style;
@@ -328,6 +338,19 @@ function applyOrient(){
     else screen.orientation?.unlock?.();
   } catch {}
 }
+const skinBtn = document.createElement('button');
+skinBtn.className = 'set-row';
+skinBtn.title = 'Vzhled konzole kolem displejů';
+layoutBtn.after(skinBtn);
+function updateSkinBtn(){ setRow(skinBtn, 'Kabátek', SKINS[skinKey].name); }
+skinBtn.addEventListener('click', () => {
+  const keys = Object.keys(SKINS);
+  skinKey = keys[(keys.indexOf(skinKey) + 1) % keys.length];
+  try { localStorage.setItem('pokeIdle.skin', skinKey); } catch {}
+  updateSkinBtn();
+  relayout();
+});
+updateSkinBtn();
 orientBtn.addEventListener('click', () => {
   orientLock = !orientLock;
   try { localStorage.setItem('pokeIdle.orient', orientLock ? 'lock' : 'free'); } catch {}
@@ -361,7 +384,7 @@ dsRender();
   });
   say('fonty a kabátek…');
   const skin = new Image();
-  skin.src = 'assets/ds_skin.jpg';
+  skin.src = SKINS[skinKey].file;
   await Promise.race([Promise.all([document.fonts?.ready, skin.decode().catch(() => {})]), wait(6000)]);
   say('pokémoni…');
   await until(() => spritePlayers.has(playerBox) && spritePlayers.has(enemyBox), 8000);
