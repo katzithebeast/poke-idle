@@ -29,7 +29,7 @@ function devFindMon(q){
 
 const DEV_ACTIONS = {
   coins(){ addCoins(10000); },
-  balls(){ for (const k of Object.keys(SHOP_BALLS)) shop.balls[k] = (shop.balls[k] || 0) + 5; saveShop(); toast('+5 od každého pokéballu'); },
+  balls(){ for (const k of Object.keys(SHOP_BALLS)){ shop.balls[k] = (shop.balls[k] || 0) + 5; shop.lures[k] = (shop.lures[k] || 0) + 5; } saveShop(); toast('+5 od každého pokéballu a návnady'); },
   items(){ for (const k of Object.keys(ITEM_DEFS)) shop.items[k] = (shop.items[k] || 0) + 1; saveShop(); toast('+1 od každého předmětu'); },
   lvl(){
     const p = activeMon();

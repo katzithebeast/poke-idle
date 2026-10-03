@@ -1626,6 +1626,9 @@ body.ds.theme-dark .dex-detail{ background:var(--w-bg); }
 
 .pad-slot{ display:none; }
 body.ds .pad-slot{ display:block; }
+
+.ball-pick{ flex:1; justify-content:center; }
+.ball-pick img{ width:16px; height:16px; image-rendering:pixelated; }
 </style>
 </head>
 <body>
@@ -1752,7 +1755,7 @@ body.ds .pad-slot{ display:block; }
   <div id="devTools" hidden>
     <div class="pop-title">Dev nástroje (testovací uložení)</div>
     <button class="set-row" data-dev="coins"><span>+10 000 mincí</span></button>
-    <button class="set-row" data-dev="balls"><span>+5 od každého pokéballu</span></button>
+    <button class="set-row" data-dev="balls"><span>+5 pokéballů a návnad</span></button>
     <button class="set-row" data-dev="items"><span>+1 od každého předmětu</span></button>
     <button class="set-row" data-dev="lvl"><span>Bojujícímu +5 levelů</span></button>
     <button class="set-row" data-dev="evo"><span>Vyvinout bojujícího (bez podmínek)</span></button>
@@ -1911,14 +1914,15 @@ body.ds .pad-slot{ display:block; }
     </div>
     <div class="dm-tabs">
       <button class="dm-tab active" data-tab="buy">Pokébally</button>
+      <button class="dm-tab" data-tab="lures">Návnady</button>
       <button class="dm-tab" data-tab="items">Předměty</button>
       <button class="dm-tab" data-tab="upgrades">Vylepšení</button>
       <button class="dm-tab" data-tab="bag">Batoh</button>
-      <button class="dm-tab" data-tab="hunts">Lovy</button>
+      <button class="dm-tab" data-tab="hunts">Stopy</button>
     </div>
     <div class="dm-body dm-grid" id="shopBody"></div>
     <div class="dm-foot">
-      <span>Mince dostáváš za výhry. Z pokéballu se vylosuje pokémon – čeká v Lovech, dokud si pro něj nedojdeš.</span>
+      <span>Pokémony chytáš v ručním boji pokébally. Z návnady padne stopa vzácného pokémona – dojdi si pro něj do jeho arény.</span>
       <button class="btn" id="shopDebugCoins" title="Pro testování">Test: +1000</button>
     </div>
   </div>
@@ -1945,7 +1949,10 @@ body.ds .pad-slot{ display:block; }
   <div class="hunt-sub" id="huntSub"></div>
   <div class="actions">
     <button class="pbtn red" id="throwBtn" title="Mezerník nebo klik do scény">Hodit</button>
-    <button class="pbtn" id="fleeBtn">Utéct</button>
+    <button class="pbtn" id="fleeBtn">Zpět do boje</button>
+  </div>
+  <div class="actions">
+    <button class="pbtn ball-pick" id="ballPick" title="Vybrat pokéball"></button>
   </div>
 </div>
 
@@ -3159,6 +3166,7 @@ function onEnemyDefeated(box){
   registerDefeat(id);
   rewardDefeat(box);   // mince, XP, výhra v aréně (battle.js)
   clearTimeout(box._spawnTimer);
+  if (battle.enemy.track) return trackDefeated();   // stopa z návnady (manual.js)
   box._spawnTimer = setTimeout(() => {
     if (monState.get(box) === 'faint') spawnEnemy();
   }, 1500);

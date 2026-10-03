@@ -144,6 +144,7 @@ async function bossWon(){
   const p = activeMon();
   if (p){ giveXp(p, Math.round(b.lvl * 60 * (1 + 0.1 * upg('xp')))); p.friend = (p.friend || 0) + 20; checkEvoReady(p); }
   progress.bosses[b.arena] = true;
+  giveLegendTrack(b.arena);
   saveShop(); saveParty(); saveProgress();
   updateCoins();
   jingle(4);
@@ -196,3 +197,21 @@ document.addEventListener('keydown', (e) => {
 // na mobilu stačí ťuknout do scény
 shell.addEventListener('click', () => { if (bossFight) bossPlayerAttack(); });
 updateBossCall();
+
+/* ---------- Legendární pokémoni: jen jako odměna za Pány arén ----------
+   Po porážce bosse se v Obchodě → Stopy objeví stopa legendy té arény (jednou). */
+const LEGENDS = {
+  ocean: 382, desert: 383, jungle: 251, mountain: 144, grave: 487,
+  storm: 145, volcano: 146, nether: 150, fel: 491, aether: 493,
+};
+function giveLegendTrack(key){
+  progress.legends ||= {};
+  if (progress.legends[key] || !LEGENDS[key]) return;
+  progress.legends[key] = true;
+  const id = LEGENDS[key];
+  shop.hunts.push({ uid: shop.nextUid++, id, shiny: Math.random() < 1 / 128, stars: 3, legend: true, arena: key });
+  saveShop(); saveProgress();
+  setTimeout(() => toast(`Objevila se stopa legendárního ${NAMES[id - 1]}! (Obchod → Stopy)`, true), 3000);
+}
+// kdo už bosse porazil ve starší verzi, dostane legendu teď
+for (const k of Object.keys(progress.bosses || {})) if (progress.bosses[k]) giveLegendTrack(k);

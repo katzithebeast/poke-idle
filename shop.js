@@ -20,13 +20,21 @@ const MONS_BY_RARITY = RARITIES.map((_, r) => {
   return ids;
 });
 
-// cena, šance na vzácnosti (v %, pořadí jako RARITIES), šance na shiny, násobek šance na chycení,
-// šance na kvalitu 1–5 ★ (party.js)
+/* Pokébally = spotřební, na chytání (hod v ručním boji). Návnady = ruleta: padne STOPA
+   vzácného pokémona, za kterým pak dojdeš do jeho arény, oslabíš ho a chytíš.
+   Legendární pokémoni z návnad nepadají – ti jsou odměnou za Pány arén (boss.js). */
+const CATCH_BALLS = {
+  poke:   { price: 40,   catch: 1,        desc: 'Základní pokéball.' },
+  great:  { price: 120,  catch: 1.5,      desc: 'Šance na chycení ×1,5.' },
+  ultra:  { price: 350,  catch: 2,        desc: 'Šance na chycení ×2.' },
+  master: { price: 6000, catch: Infinity, desc: 'Chytí vždy.' },
+};
+// návnady (dříve "pokébally" v ruletě): cena, šance na vzácnosti (%), shiny, kvalita 1–5 ★
 const SHOP_BALLS = {
-  poke:   { price: 100,  odds: [70, 24, 5, 1, 0],      shiny: 1 / 256, catch: 1,        stars: [55, 30, 11, 3.5, 0.5], accent: '#e83a3a', tag: 'Pro začátek' },
-  great:  { price: 300,  odds: [38, 38, 18, 5.5, 0.5], shiny: 1 / 200, catch: 1.3,      stars: [40, 33, 18, 7, 2],     accent: '#3a74d8', tag: 'Lepší šance' },
-  ultra:  { price: 800,  odds: [12, 30, 38, 16, 4],    shiny: 1 / 128, catch: 1.6,      stars: [25, 33, 25, 12, 5],    accent: '#f2c230', tag: 'Pro sběratele' },
-  master: { price: 2500, odds: [0, 0, 30, 50, 20],     shiny: 1 / 64,  catch: Infinity, stars: [0, 20, 40, 28, 12],    accent: '#a64ce8', tag: 'Jen to nejlepší' },
+  poke:   { name: 'Návnada',            price: 100,  odds: [70, 24, 5, 1, 0],    shiny: 1 / 256, stars: [55, 30, 11, 3.5, 0.5], accent: '#e83a3a', tag: 'Pro začátek' },
+  great:  { name: 'Lepší návnada',      price: 300,  odds: [38, 38, 18.5, 5.5, 0], shiny: 1 / 200, stars: [40, 33, 18, 7, 2],   accent: '#3a74d8', tag: 'Lepší šance' },
+  ultra:  { name: 'Super návnada',      price: 800,  odds: [12, 30, 40, 18, 0],  shiny: 1 / 128, stars: [25, 33, 25, 12, 5],    accent: '#f2c230', tag: 'Pro sběratele' },
+  master: { name: 'Mistrovská návnada', price: 2500, odds: [0, 0, 40, 60, 0],    shiny: 1 / 64,  stars: [0, 20, 40, 28, 12],    accent: '#a64ce8', tag: 'Jen to nejlepší' },
 };
 const PITY_MAX = 30;                            // nejpozději každý 30. ball dá aspoň epického
 const RELEASE_COINS = [10, 20, 45, 100, 250];   // kolik mincí vrátí puštění vylosovaného pokémona
@@ -51,6 +59,13 @@ function habitatOf(id){
 }
 
 const BALL_ICON = Object.fromEntries(Object.keys(BALL_TYPES).map(k => [k, pxBallCanvas(k, 16).toDataURL()]));
+// ikona návnady: pixelová tlapka (stopa) v barvě návnady
+const LURE_ICON = Object.fromEntries(Object.entries(SHOP_BALLS).map(([k, d]) => [k, pxIcon((x, y, dx, dy) => {
+  const pal = [pxMixHex(d.accent, '#ffffff', 0.45), d.accent, pxMixHex(d.accent, '#000000', 0.45)];
+  if (Math.hypot(dx, (dy - 2.2) * 1.15) < 3.4) return pxShade(pal, dx / 4, (dy - 2) / 4);          // polštářek
+  for (const [tx, ty] of [[-3.6, -2], [-1.2, -4.2], [1.4, -4.2], [3.8, -2]]) if (Math.hypot(dx - tx, dy - ty) < 1.45) return pal[1];   // prsty
+  return null;
+}, 12).toDataURL()]));
 const COIN_ICON = pxCoinCanvas(10).toDataURL();
 document.querySelectorAll('img.coin').forEach(i => { i.src = COIN_ICON; });
 const wait = ms => new Promise(r => setTimeout(r, ms));
@@ -60,8 +75,15 @@ const coinHtml = n => `<img class="coin" alt="" src="${COIN_ICON}">${n.toLocaleS
 const SHOP_KEY = 'pokeIdle.shop';
 let shop = null;
 try { shop = JSON.parse(localStorage.getItem(SHOP_KEY)); } catch {}
-shop = { coins: 300, balls: {}, hunts: [], pity: 0, nextUid: 1, items: {}, upg: {}, ...(shop || {}) };
-shop.items ||= {}; shop.upg ||= {};
+shop = { coins: 300, balls: {}, hunts: [], pity: 0, nextUid: 1, items: {}, upg: {}, lures: {}, ...(shop || {}) };
+shop.items ||= {}; shop.upg ||= {}; shop.lures ||= {};
+// převod ze staré verze: co se dřív kupovalo jako "pokéball" do rulety, je teď návnada
+if (!shop.v2){
+  for (const [k, n] of Object.entries(shop.balls || {})) shop.lures[k] = (shop.lures[k] || 0) + n;
+  shop.balls = { poke: 5 };
+  shop.v2 = true;
+  try { localStorage.setItem(SHOP_KEY, JSON.stringify(shop)); } catch {}
+}
 
 /* ---------- Předměty a trvalá vylepšení trenéra ----------
    Předměty se kupují tady a používají v Týmu (léčení, level, evoluce).
@@ -181,8 +203,8 @@ function monCardHtml(h){
     <div class="mt-sub">${qstars(h.stars || 1)}</div>
     <div class="mt-sub">${ARENAS[habitatOf(h.id)].name}<br>${owned ? 'už máš v deníku' : h.shiny ? 'nový shiny do deníku!' : 'nový do deníku!'}</div>
     <div class="actions">
-      <button class="btn primary" data-hunt="${h.uid}"><img class="coin" alt="" src="${BALL_ICON[h.ball]}">Vyrazit</button>
-      <button class="btn" data-release="${h.uid}" title="Pustit a dostat mince zpět">Pustit +${RELEASE_COINS[monRarity(h.id)]}</button>
+      <button class="btn primary" data-hunt="${h.uid}"><img class="coin" alt="" src="${h.legend ? BALL_ICON.master : LURE_ICON[h.ball] || LURE_ICON.poke}">Vyrazit</button>
+      ${h.legend ? '' : `<button class="btn" data-release="${h.uid}" title="Zahodit stopu a dostat mince zpět">Zahodit +${RELEASE_COINS[monRarity(h.id)]}</button>`}
     </div>
   </div>`;
 }
@@ -202,11 +224,23 @@ function itemCardHtml(k, bag = false){
 function renderShop(){
   let html = '';
   if (shopTab === 'buy'){
+    for (const [k, def] of Object.entries(CATCH_BALLS)){
+      const n = shop.balls[k] || 0;
+      html += `<div class="item-card">
+        <img alt="" src="${BALL_ICON[k]}">
+        <div class="ic-body">
+          <div class="bc-head"><span class="bc-name">${BALL_TYPES[k].name}</span><span class="bc-price">${coinHtml(def.price)}</span></div>
+          <div class="ic-desc">${def.desc}${n ? ` · máš ${n}×` : ''}</div>
+          <div class="bc-actions"><button class="btn" data-cball="${k}" data-price="${def.price}">Koupit</button><button class="btn" data-cball="${k}" data-n="5" data-price="${def.price * 5}">×5</button></div>
+        </div>
+      </div>`;
+    }
+  } else if (shopTab === 'lures'){
     for (const [k, def] of Object.entries(SHOP_BALLS)){
       html += `<div class="ball-card" data-card="${k}">
-        <div class="ball-show" style="--ac:${def.accent}"><span class="ball-tag">${def.tag}</span><img alt="" src="${BALL_ICON[k]}"></div>
+        <div class="ball-show" style="--ac:${def.accent}"><span class="ball-tag">${def.tag}</span><img alt="" src="${LURE_ICON[k]}"></div>
         <div class="bc-body">
-          <div class="bc-head"><span class="bc-name">${BALL_TYPES[k].name}</span><span class="bc-price">${coinHtml(def.price)}</span></div>
+          <div class="bc-head"><span class="bc-name">${def.name}</span><span class="bc-price">${coinHtml(def.price)}</span></div>
           ${oddsHtml(def)}
           <div class="bc-owned" data-owned="${k}"></div>
           <div class="bc-actions">
@@ -217,12 +251,13 @@ function renderShop(){
       </div>`;
     }
   } else if (shopTab === 'bag'){
+    for (const k of Object.keys(CATCH_BALLS)) if (shop.balls[k]) html += `<div class="item-card"><img alt="" src="${BALL_ICON[k]}"><div class="ic-body"><div class="bc-head"><span class="bc-name">${BALL_TYPES[k].name}</span></div><div class="ic-desc">${shop.balls[k]}× · hází se v ručním boji</div></div></div>`;
     for (const k of Object.keys(SHOP_BALLS)){
-      if (!shop.balls[k]) continue;
+      if (!shop.lures[k]) continue;
       html += `<div class="ball-card">
-        <div class="ball-show" style="--ac:${SHOP_BALLS[k].accent}"><span class="ball-tag">${shop.balls[k]}× v batohu</span><img alt="" src="${BALL_ICON[k]}"></div>
+        <div class="ball-show" style="--ac:${SHOP_BALLS[k].accent}"><span class="ball-tag">${shop.lures[k]}× v batohu</span><img alt="" src="${LURE_ICON[k]}"></div>
         <div class="bc-body">
-          <div class="bc-head"><span class="bc-name">${BALL_TYPES[k].name}</span></div>
+          <div class="bc-head"><span class="bc-name">${SHOP_BALLS[k].name}</span></div>
           <div class="bc-actions"><button class="btn primary" data-open="${k}">Otevřít</button></div>
         </div>
       </div>`;
@@ -247,7 +282,7 @@ function renderShop(){
       </div>`;
     }).join('');
   } else {
-    html = shop.hunts.map(monCardHtml).join('') || '<div class="dm-empty">Žádný vylosovaný pokémon nečeká. Otevři pokéball!</div>';
+    html = shop.hunts.map(monCardHtml).join('') || '<div class="dm-empty">Žádná stopa. Otevři návnadu – nebo poraz Pána arény.</div>';
   }
   shopBody.innerHTML = html;
   shopPage = 0;
@@ -262,12 +297,12 @@ function refreshShopState(){
     b.classList.toggle('poor', shop.coins < SHOP_BALLS[b.dataset.buy || b.dataset.buyopen].price);
   });
   shopBody.querySelectorAll('[data-price]').forEach(b => b.classList.toggle('poor', shop.coins < Number(b.dataset.price)));
-  shopBody.querySelectorAll('[data-owned]').forEach(el => { const n = shop.balls[el.dataset.owned] || 0; el.textContent = n ? `V batohu: ${n}` : ''; });
-  const bagN = Object.values(shop.balls).reduce((a, b) => a + b, 0) + Object.values(shop.items).reduce((a, b) => a + b, 0);
+  shopBody.querySelectorAll('[data-owned]').forEach(el => { const n = shop.lures[el.dataset.owned] || 0; el.textContent = n ? `V batohu: ${n}` : ''; });
+  const bagN = [shop.balls, shop.lures, shop.items].reduce((s, o) => s + Object.values(o).reduce((a, b) => a + b, 0), 0);
   shopEl.querySelectorAll('[data-tab]').forEach(b => {
     b.classList.toggle('active', b.dataset.tab === shopTab);
     const n = b.dataset.tab === 'bag' ? bagN : b.dataset.tab === 'hunts' ? shop.hunts.length : 0;
-    b.textContent = { buy: 'Pokébally', items: 'Předměty', upgrades: 'Vylepšení', bag: 'Batoh', hunts: 'Lovy' }[b.dataset.tab] + (n ? ` · ${n}` : '');
+    b.textContent = { buy: 'Pokébally', lures: 'Návnady', items: 'Předměty', upgrades: 'Vylepšení', bag: 'Batoh', hunts: 'Stopy' }[b.dataset.tab] + (n ? ` · ${n}` : '');
   });
 }
 
@@ -366,11 +401,11 @@ function buyBall(k, btn){
   if (shop.coins < def.price){
     replay('shake');
     beep(140, 0.12, 0.04, 'square');
-    toast(`Na ${BALL_TYPES[k].name} ti chybí ${(def.price - shop.coins).toLocaleString('cs-CZ')} mincí.`);
+    toast(`Na ${def.name} ti chybí ${(def.price - shop.coins).toLocaleString('cs-CZ')} mincí.`);
     return false;
   }
   shop.coins -= def.price;
-  shop.balls[k] = (shop.balls[k] || 0) + 1;
+  shop.lures[k] = (shop.lures[k] || 0) + 1;
   saveShop();
   updateCoins();
   replay('flash');
@@ -380,7 +415,7 @@ function buyBall(k, btn){
 shopBody.addEventListener('click', (e) => {
   const b = e.target.closest('button');
   if (!b) return;
-  if (b.dataset.item || b.dataset.upg){
+  if (b.dataset.item || b.dataset.upg || b.dataset.cball){
     const price = Number(b.dataset.price), card = b.closest('.item-card');
     if (shop.coins < price){
       card.classList.remove('shake'); void card.offsetWidth; card.classList.add('shake');
@@ -388,7 +423,8 @@ shopBody.addEventListener('click', (e) => {
       return toast(`Chybí ti ${(price - shop.coins).toLocaleString('cs-CZ')} mincí.`);
     }
     shop.coins -= price;
-    if (b.dataset.item) shop.items[b.dataset.item] = itemCount(b.dataset.item) + 1;
+    if (b.dataset.cball) shop.balls[b.dataset.cball] = (shop.balls[b.dataset.cball] || 0) + Number(b.dataset.n || 1);
+    else if (b.dataset.item) shop.items[b.dataset.item] = itemCount(b.dataset.item) + 1;
     else { shop.upg[b.dataset.upg] = upg(b.dataset.upg) + 1; toast(`${UPGRADES[b.dataset.upg].name}: úroveň ${upg(b.dataset.upg)}!`, true); }
     saveShop(); updateCoins();
     [880, 1320].forEach((f, i) => beep(f, 0.07, 0.04, 'square', i * 0.07));
@@ -398,7 +434,7 @@ shopBody.addEventListener('click', (e) => {
   if (b.dataset.buy) buyBall(b.dataset.buy, b);
   else if (b.dataset.buyopen){ if (buyBall(b.dataset.buyopen, b)) openBall(b.dataset.buyopen); }
   else if (b.dataset.open) openBall(b.dataset.open);
-  else if (b.dataset.hunt) startHunt(Number(b.dataset.hunt));
+  else if (b.dataset.hunt) startTrack(Number(b.dataset.hunt));
   else if (b.dataset.release){
     const i = shop.hunts.findIndex(h => h.uid === Number(b.dataset.release));
     if (i < 0) return;
@@ -434,9 +470,9 @@ function preloadImages(urls, ms){
 }
 
 async function openBall(type){
-  if (caseBusy || !shop.balls[type]) return;
+  if (caseBusy || !shop.lures[type]) return;
   caseBusy = true;
-  shop.balls[type]--;
+  shop.lures[type]--;
   const res = rollMon(type);
   const rec = { uid: shop.nextUid++, id: res.id, shiny: res.shiny, ball: type, stars: 1 + rollRarity(SHOP_BALLS[type].stars) };
   shop.hunts.push(rec);
@@ -447,11 +483,11 @@ async function openBall(type){
   caseStrip.style.transform = '';
   caseStrip.getAnimations().forEach(a => a.cancel());
   caseStrip.innerHTML = items.map(caseItemHtml).join('');
-  document.getElementById('caseTitle').innerHTML = `<img alt="" src="${BALL_ICON[type]}">Otevírám ${BALL_TYPES[type].name}…`;
+  document.getElementById('caseTitle').innerHTML = `<img alt="" src="${LURE_ICON[type]}">${SHOP_BALLS[type].name}: hledám stopu…`;
   caseActions.innerHTML = '';
   const intro = document.createElement('div');
   intro.className = 'case-intro';
-  intro.innerHTML = `<img alt="" src="${BALL_ICON[type]}">`;
+  intro.innerHTML = `<img alt="" src="${LURE_ICON[type]}">`;
   caseWindow.appendChild(intro);
   caseEl.classList.add('open');
 
@@ -506,11 +542,11 @@ function showReveal(rec, r, type){
     <div class="reveal-stars">${qstars(rec.stars || 1)}</div>
     <div class="reveal-types">${monTypes(rec.id).map(t => `<span class="type" style="background:${TYPE_COLORS[t] || '#888'}">${t}</span>`).join('')}</div>
     <span class="reveal-badge ${isNew ? '' : 'old'}">${isNew ? 'Nový do deníku!' : 'Už máš v deníku'}</span>
-    <div class="reveal-info">Žije v aréně ${ARENAS[habitatOf(rec.id)].name}.<br>Čeká v Lovech – vyraz si pro něj s ${BALL_TYPES[type].name}em.</div>
+    <div class="reveal-info">Stopa vede do arény ${ARENAS[habitatOf(rec.id)].name}.<br>Dojdi tam, oslab ho a chyť pokéballem.</div>
     <div class="case-actions">
-      <button class="pbtn red" data-rv="hunt">Vyrazit na lov</button>
-      <button class="pbtn" data-rv="later">Do Lovů</button>
-      ${shop.balls[type] ? `<button class="pbtn" data-rv="again">Otevřít další (${shop.balls[type]})</button>` : ''}
+      <button class="pbtn red" data-rv="hunt">Vyrazit po stopě</button>
+      <button class="pbtn" data-rv="later">Uložit stopu</button>
+      ${shop.lures[type] ? `<button class="pbtn" data-rv="again">Otevřít další (${shop.lures[type]})</button>` : ''}
     </div>`;
   revealCard.querySelector('.reveal-stage').style.backgroundImage = `url(${pxSpotlight(R.color)})`;
   revealEl.classList.add('open');
@@ -530,7 +566,7 @@ function showReveal(rec, r, type){
     const a = ev.target.closest('[data-rv]')?.dataset.rv;
     if (!a) return;
     closeReveal();
-    if (a === 'hunt') startHunt(rec.uid);
+    if (a === 'hunt') startTrack(rec.uid);
     else if (a === 'again') openBall(type);
     else if (shopEl.classList.contains('open')){ shopTab = 'hunts'; renderShop(); }
   };
@@ -587,57 +623,59 @@ function setupTrainer(ballType){
 }
 window.addEventListener('resize', () => { if (!trainerBox.hidden) applyMon(trainerBox); });
 
+// šance na chycení: vzácnost × ball × hod × zbylé HP (oslabený = snáz) × stav (paralýza, zmrazení…)
 function catchChance(h, zone){
-  const def = SHOP_BALLS[h.ball];
+  const def = CATCH_BALLS[h.ball];
   if (def.catch === Infinity) return 1;
-  return Math.min(0.97, CATCH_BASE[monRarity(h.id)] * def.catch * zone.mult);
+  const hpF = 0.3 + 1.0 * (1 - Math.max(0, Math.min(1, h.hpFrac ?? 1)));
+  return Math.min(0.97, CATCH_BASE[monRarity(h.id)] * def.catch * zone.mult * hpF * (h.statusBonus || 1) * (h.legend ? 0.5 : 1));
 }
+const ownedBalls = () => Object.keys(CATCH_BALLS).filter(k => shop.balls[k] > 0);
 
 function renderHuntHud(msg){
-  const h = hunt.h, R = RARITIES[monRarity(h.id)];
+  const h = hunt.h, R = RARITIES[monRarity(h.id)], n = shop.balls[h.ball] || 0;
   document.getElementById('huntTitle').innerHTML =
-    `${h.shiny ? STAR : ''}Divoký ${NAMES[h.id - 1]} ${qstars(h.stars || 1)} <span class="rtag" style="--rc:${R.color}">${R.name}</span>`;
-  document.getElementById('huntSub').innerHTML = msg ||
-    `${BALL_TYPES[h.ball].name}${hunt.throws ? ` · hod č. ${hunt.throws + 1}` : ''}<br>Hoď, když je kroužek co nejmenší.`;
-  document.getElementById('throwBtn').disabled = hunt.busy;
+    `${h.shiny ? STAR : ''}${h.legend ? 'Legendární' : 'Divoký'} ${NAMES[h.id - 1]} <span class="rtag" style="--rc:${R.color}">${R.name}</span>`;
+  document.getElementById('huntSub').innerHTML = (msg ? msg + '<br>' : '') +
+    `HP ${Math.round((h.hpFrac ?? 1) * 100)} % · šance cca ${Math.round(catchChance(h, RING_ZONES[1]) * 100)} %<br>Hoď, když je kroužek co nejmenší.`;
+  const bb = document.getElementById('ballPick');
+  bb.innerHTML = `<img alt="" src="${BALL_ICON[h.ball]}">${BALL_TYPES[h.ball].name} ×${n}`;
+  document.getElementById('throwBtn').disabled = hunt.busy || !n;
   document.getElementById('fleeBtn').disabled = hunt.busy;
+  bb.disabled = hunt.busy || ownedBalls().length < 2;
+}
+function cycleBall(){
+  if (!hunt || hunt.busy) return;
+  const list = ownedBalls();
+  if (list.length < 2) return;
+  hunt.h.ball = list[(list.indexOf(hunt.h.ball) + 1) % list.length];
+  setupTrainer(hunt.h.ball);
+  renderHuntHud();
 }
 
-async function startHunt(uid){
-  const h = shop.hunts.find(x => x.uid === uid);
-  if (!h || hunt || bossFight) return;
-  closeReveal(); closeShop(); closePanel(); closeJournal(); closeTeam();
-  arenaMenu.classList.remove('open');
-  hunt = { h, prevArena: arena, busy: true, throws: 0, absorb: null };
+/* ---------- Chytací režim: z ručního boje (catchFromFight) ----------
+   Trenér nastoupí místo pokémona, hází pokébally (každý hod = 1 ball).
+   Chyceno / utekl → konec setkání. "Zpět do boje" → vrátí pokémona a pokračuje se v boji. */
+async function startCatch(info){
+  if (hunt || bossFight) return;
+  const balls = ownedBalls();
+  if (!balls.length){ toast('Nemáš žádné pokébally – kup je v Obchodě.'); return; }
+  closePanel(); closeTeam(); closeShop(); closeJournal();
+  hunt = { h: { ...info, ball: balls.includes(info.ball) ? info.ball : balls[0] }, busy: true, throws: 0, absorb: null };
   document.body.classList.add('hunting');
   await fadeTo(1);
-
-  const target = habitatOf(h.id);
-  if (target !== arena){
-    showArena(target);
-    try { localStorage.setItem(ARENA_KEY, hunt.prevArena); } catch {}   // po lovu se vrátí do původní arény
-  }
   playerBox.hidden = true;
-  setupTrainer(h.ball);
+  setupTrainer(hunt.h.ball);
   trainerBox.hidden = false;
   applyMon(trainerBox);
-  clearTimeout(enemyBox._spawnTimer);
-  (enemyBox._faintAnims || []).forEach(a => a.cancel());
-  enemyBox._faintAnims = null;
-  setMonSprite(enemyBox, { id: h.id, shiny: h.shiny });
-  setState(enemyBox, 'idle');
   huntHud.classList.add('open');
   renderHuntHud();
-
   await fadeTo(0);
-  toast(`Divoký ${h.shiny ? 'shiny ' : ''}${NAMES[h.id - 1]} se objevil!`, h.shiny);
-  if (h.shiny) sparkle(enemyBox);
   hunt.busy = false;
   renderHuntHud();
   startRing();
 }
-
-async function endHunt(){
+async function endCatch(result){
   if (!hunt) return;
   hunt.busy = true;
   stopRing();
@@ -648,11 +686,10 @@ async function endHunt(){
   trainerBox.hidden = true;
   spritePlayers.delete(trainerBox);
   playerBox.hidden = false;
-  if (arena !== hunt.prevArena) showArena(hunt.prevArena);
-  setMonSprite(enemyBox, battle.enemy);
-  setState(enemyBox, 'idle');
   hunt = null;
   document.body.classList.remove('hunting');
+  if (result === 'back') setMonSprite(enemyBox, battle.enemy);     // zpět do boje se stejným soupeřem
+  await finishCatch?.(result);                                        // manual.js: konec setkání / návrat do boje
   updateBossCall();
   await fadeTo(0);
 }
@@ -710,8 +747,11 @@ function worldPoint(clientX, clientY){
 
 async function throwBall(){
   if (!hunt || hunt.busy) return;
-  hunt.busy = true;
   const h = hunt.h;
+  if (!(shop.balls[h.ball] > 0)) return toast('Došly ti pokébally tohoto typu.');
+  hunt.busy = true;
+  shop.balls[h.ball]--;
+  saveShop();
   const zone = RING_ZONES.find(z => (ring ? ring.k : 1) <= z.max);
   stopRing();
   hunt.throws++;
@@ -797,13 +837,13 @@ async function throwBall(){
     jingle(Math.max(2, monRarity(h.id)));
     sparkleAt(ball, 12);
     const news = addToDex(h.id, h.shiny);
-    const mon = addMon({ id: h.id, shiny: h.shiny, stars: h.stars || 1 });
-    shop.hunts = shop.hunts.filter(x => x.uid !== h.uid);
+    const mon = addMon({ id: h.id, shiny: h.shiny, stars: h.stars || 1, lvl: h.lvl });
+    if (h.track) shop.hunts = shop.hunts.filter(x => x.uid !== h.track);
     saveShop();
     toast(`Gotcha! ${NAMES[h.id - 1]} (${mon.stars}★, Lv ${mon.lvl}) je chycen${news === 'new' ? ' – nový v deníku!' : news === 'shiny' ? ' – nový shiny v deníku!' : '!'}`, h.shiny);
     renderHuntHud('Chyceno!');
     await wait(2200);
-    endHunt();
+    endCatch('caught');
   } else {
     // vysmekl se: záblesk, ball zmizí, pokémon vyskočí zpátky
     beep(500, 0.15, 0.05, 'sawtooth');
@@ -816,8 +856,16 @@ async function throwBall(){
       { filter: 'brightness(1)', transform: 'scale(1)', opacity: 1 },
     ], { duration: 320, easing: 'ease-out' }).finished;
     toast(`Ach ne! ${NAMES[h.id - 1]} se vysmekl!`);
+    // divoký může po vysmeknutí utéct (stopa i legenda ne – ty zůstanou v seznamu)
+    if (!h.track && Math.random() < 0.15){
+      await wait(500);
+      toast(`${NAMES[h.id - 1]} utekl!`);
+      await wait(700);
+      return endCatch('fled');
+    }
     hunt.busy = false;
-    renderHuntHud(`Vysmekl se! Zkus to znovu.<br>${BALL_TYPES[h.ball].name} · hod č. ${hunt.throws + 1}`);
+    if (!shop.balls[h.ball] && ownedBalls().length) h.ball = ownedBalls()[0], setupTrainer(h.ball);
+    renderHuntHud('Vysmekl se!' + (ownedBalls().length ? '' : ' Došly ti pokébally.'));
     startRing();
   }
 }
@@ -825,9 +873,9 @@ async function throwBall(){
 document.getElementById('throwBtn').addEventListener('click', throwBall);
 document.getElementById('fleeBtn').addEventListener('click', () => {
   if (!hunt || hunt.busy) return;
-  toast(`Utekl jsi. ${NAMES[hunt.h.id - 1]} na tebe počká v Lovech.`);
-  endHunt();
+  endCatch('back');
 });
+document.getElementById('ballPick').addEventListener('click', cycleBall);
 // na mobilu stačí ťuknout kamkoliv do scény
 shell.addEventListener('click', () => { if (hunt) throwBall(); });
 

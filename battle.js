@@ -18,6 +18,7 @@ const BOSS_WINS = 15;                   // po tolika výhrách v aréně tě vyz
 // se navíc přimíchají pokémoni odjinud, ať se startér nezasekne na nevýhodném typu
 const WILD_RARITY = [[90, 10, 0, 0, 0], [75, 22, 3, 0, 0], [62, 28, 9, 1, 0], [55, 30, 12, 3, 0], [45, 35, 16, 4, 0]];
 const WILD_MIX = [0.4, 0.3, 0.2, 0.1];
+const WILD_SHINY = 1 / 512;           // shiny v divočině (ve stopách z návnad vyšší)
 const WILD_STAT = 0.75;                 // divocí jsou slabší (v originálu nemají trénink ani IV)
 const ATTACK_POWER = 50, STAB = 1.5, CRIT = 1 / 16;
 const DAMAGE_SCALE = 0.4;               // ztlumené poškození → souboj trvá ~8 zásahů (s typovou výhodou ~4)
@@ -64,7 +65,7 @@ function wildMon(key = arena){
   // level podle tvého pokémona (±2), ale v rozsahu arény – když arénu přerosteš, je čas jít dál
   const pl = activeMon()?.lvl ?? a;
   const lvl = Math.min(b, Math.max(a, pl - 2 + Math.floor(Math.random() * 4)));
-  return { id, shiny: Math.random() < SHINY_CHANCE, lvl, hp: wildStats(id, lvl).hp };
+  return { id, shiny: Math.random() < WILD_SHINY, lvl, hp: wildStats(id, lvl).hp };
 }
 const enemyStats = () => wildStats(battle.enemy.id, battle.enemy.lvl);
 
@@ -100,7 +101,7 @@ updateAutoBtn();
 
 function canFight(){
   const p = activeMon();
-  return autoOn && !hunt && !bossFight && !document.hidden && p && p.hp > 0 && !p.fainted && battle.enemy.hp > 0
+  return autoOn && !battle.enemy.track && !hunt && !bossFight && !document.hidden && p && p.hp > 0 && !p.fainted && battle.enemy.hp > 0
     && Number(playerBox.dataset.id) === p.id
     && monState.get(playerBox) === 'idle' && monState.get(enemyBox) === 'idle';
 }
@@ -311,8 +312,8 @@ decorateArenaMenu();
 /* ---------- Start ---------- */
 // zamčená aréna z dřívějška → zpátky do první
 if (arenaLocked(arena)) showArena(ARENA_ORDER[0]);
-// soupeř ze staré verze (bez levelu, nebo legendární, který divoce nežije) → nový divoký z arény
-if (!battle.enemy.lvl || monRarity(battle.enemy.id) === 4){
+// soupeř ze staré verze (bez levelu, nebo legendární mimo stopu) → nový divoký z arény
+if (!battle.enemy.lvl || (monRarity(battle.enemy.id) === 4 && !battle.enemy.track)){
   battle.enemy = wildMon();
   saveBattle();
   setMonSprite(enemyBox, battle.enemy);

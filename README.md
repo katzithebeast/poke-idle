@@ -73,3 +73,10 @@ Service worker (`sw.js`) uloží celou hru i stažené sprity do telefonu → fu
 se stáhne sama při dalším spuštění. Nahrání nové verze: `./deploy.sh` (zapíše `version.js`, commit, push).
 Verze je vidět v Nastavení → Verze hry (klik = znovu načíst). Nové APK je potřeba jen při změně
 nativní části (ikona, oprávnění, Capacitor).
+
+## Získávání pokémonů (od verze v2)
+- **Chytání ve světě:** v ručním boji oslab divokého pokémona (paralýza/zmrazení pomáhá) → **Chytit** → trenér hází
+  pokébally (spotřební, Obchod → Pokébally). Šance = vzácnost × ball × načasování hodu × zbylé HP.
+- **Návnady** (dřívější ruleta): padne **stopa** vzácného pokémona → Obchod → Stopy → Vyrazit → setkání v jeho aréně.
+- **Legendární** jen jako stopa po porážce Pána arény (každá aréna má svou legendu).
+- Shiny v divočině 1/512, v návnadách častěji. Stará verze s ruletou: tag `v1-gamba` / větev `zaloha-v1-gamba`.

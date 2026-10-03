@@ -95,6 +95,7 @@ body.ds.manual #dsPanel{ visibility:hidden; }
 .mp-foot{ display:flex; justify-content:space-between; }
 .mp-side{ all:unset; cursor:pointer; font:700 9px var(--font-title); text-transform:uppercase; color:var(--w-muted); padding:3px 4px; }
 .mp-side:disabled{ opacity:.35; }
+.mp-catch{ color:#ff8a6a; }
 .dsp-fight{ background:#e85a3a !important; color:#fff !important; animation:none !important; }
 </style>`);
 
@@ -106,7 +107,8 @@ let turnBusy = false, nextEnemyMove = null;
 let fightOpen = false;
 const manualPanel = document.getElementById('manualPanel');
 
-const manualActive = () => !autoOn && !hunt && !bossFight && !!activeMon() && !activeMon().fainted && activeMon().hp >= 1 && battle.enemy?.hp >= 1;
+// stopa (návnada / legenda) se bojuje vždy ručně, i když je zapnutý auto boj
+const manualActive = () => (!autoOn || !!battle.enemy?.track) && !hunt && !bossFight && !!activeMon() && !activeMon().fainted && activeMon().hp >= 1 && battle.enemy?.hp >= 1;
 function syncFight(){
   if (!battle.enemy._k) battle.enemy._k = Date.now() + Math.random();   // nový soupeř = nové EP a stavy
   if (fightKey !== battle.enemy._k){ fightKey = battle.enemy._k; E.ep = 0; E.st = {}; nextEnemyMove = null; }
@@ -262,6 +264,7 @@ function openFight(){
 function closeFight(){ fightOpen = false; renderManual(); }
 function fleeFight(){
   if (turnBusy) return;
+  if (battle.enemy.track){ toast('Utekl jsi. Stopa zůstává v Obchodě → Stopy.'); return leaveTrack(); }
   toast(`Utekl jsi před ${NAMES[battle.enemy.id - 1]}.`);
   fightOpen = false;
   spawnEnemy();
@@ -287,7 +290,7 @@ const BTN_IMG = (() => {
   return c.toDataURL();
 })();
 function renderManual(){
-  const on = fightOpen && (manualActive() || turnBusy) && !autoOn;
+  const on = fightOpen && (manualActive() || turnBusy) && (!autoOn || !!battle.enemy?.track);
   if (fightOpen && !on && !turnBusy) fightOpen = false;
   document.body.classList.toggle('manual', on);
   document.body.classList.toggle('manual-wait', !on && fightReady());
@@ -313,6 +316,7 @@ function renderManual(){
     </div>
     <div class="mp-foot">
       <button class="mp-side" data-mp="flee" ${turnBusy ? 'disabled' : ''}>◂ Utéct</button>
+      <button class="mp-side mp-catch" data-mp="catch" ${turnBusy ? 'disabled' : ''}>◓ Chytit · ${Object.values(shop.balls).reduce((a, b) => a + b, 0)}</button>
       <button class="mp-side" data-mp="menu" ${turnBusy ? 'disabled' : ''}>Menu · START ▸</button>
     </div>`;
 }
@@ -323,6 +327,7 @@ manualPanel.addEventListener('click', (e) => {
   if (k === 'open') openFight();
   else if (k === 'menu') closeFight();
   else if (k === 'flee') fleeFight();
+  else if (k === 'catch') tryCatch();
   else takeTurn(k);
 });
 // klávesnice (PC): A útok, X/Y speciály, B krytí – jen když není otevřené okno
@@ -333,3 +338,75 @@ document.addEventListener('keydown', (e) => {
 });
 setInterval(() => { if (!turnBusy) renderManual(); }, 500);
 renderManual();
+
+/* ---------- Chytání v boji ----------
+   Oslab soupeře (a ideálně paralyzuj / zmraz) → Chytit → chytací režim (shop.js startCatch). */
+const WILD_STARS = [60, 28, 9, 2.5, 0.5];
+function tryCatch(){
+  if (turnBusy || !manualActive()) return;
+  syncFight();
+  const e = battle.enemy;
+  e.stars ||= 1 + rollRarity(WILD_STARS);
+  fightOpen = false;
+  renderManual();
+  startCatch({
+    id: e.id, shiny: !!e.shiny, lvl: e.lvl, stars: e.stars,
+    hpFrac: E.mon.hp / maxHp(E), statusBonus: E.st.para || E.st.frozen ? 1.3 : 1,
+    track: e.track, legend: e.legend, ball: 'poke',
+  });
+}
+// výsledek chytání (volá shop.js endCatch, během zatmavení)
+async function finishCatch(result){
+  if (result === 'back'){ fightOpen = true; say('Zpátky do boje! Co uděláš?'); renderManual(); return; }
+  fightOpen = false;
+  if (battle.enemy.track) endTrack();
+  else { battle.enemy = wildMon(); saveBattle(); setMonSprite(enemyBox, battle.enemy); setState(enemyBox, 'idle'); }
+  renderManual();
+}
+
+/* ---------- Stopy: setkání se vzácným pokémonem v jeho aréně ---------- */
+const trackArena = h => h.arena || habitatOf(h.id);
+async function startTrack(uid){
+  const h = shop.hunts.find(x => x.uid === uid);
+  if (!h || hunt || bossFight || battle.enemy.track) return;
+  if (!activeMon() || activeMon().fainted) return toast('Nejdřív pošli do boje zdravého pokémona (Tým).');
+  closeReveal(); closeShop(); closePanel(); closeJournal(); closeTeam();
+  await fadeTo(1);
+  battle.trackCtx = { prevArena: arena, prevEnemy: battle.enemy };
+  const target = trackArena(h);
+  if (target !== arena){
+    showArena(target);
+    try { localStorage.setItem(ARENA_KEY, battle.trackCtx.prevArena); } catch {}   // po stopě zpátky
+  }
+  const [a, b] = ARENA_LEVELS[target];
+  const lvl = h.legend ? Math.min(100, b + 5) : Math.min(b + 2, Math.max(a, (activeMon()?.lvl || a) + 1));
+  battle.enemy = { id: h.id, shiny: !!h.shiny, lvl, hp: wildStats(h.id, lvl).hp, stars: h.stars || 1, track: uid, legend: !!h.legend };
+  saveBattle();
+  clearTimeout(enemyBox._spawnTimer);
+  (enemyBox._faintAnims || []).forEach(x => x.cancel());
+  enemyBox._faintAnims = null;
+  setMonSprite(enemyBox, battle.enemy);
+  setState(enemyBox, 'idle');
+  await fadeTo(0);
+  if (h.shiny) sparkle(enemyBox);
+  openFight();
+  say(`${h.legend ? 'Legendární' : 'Divoký'} ${NAMES[h.id - 1]} (Lv ${lvl}) se objevil! Oslab ho a chyť.`);
+}
+// konec setkání se stopou: zpátky do původní arény a k původnímu soupeři
+function endTrack(){
+  const ctx = battle.trackCtx || {};
+  delete battle.trackCtx;
+  if (ctx.prevArena && ctx.prevArena !== arena) showArena(ctx.prevArena);
+  battle.enemy = ctx.prevEnemy?.hp > 0 && !ctx.prevEnemy.track ? ctx.prevEnemy : wildMon();
+  saveBattle();
+  setMonSprite(enemyBox, battle.enemy);
+  setState(enemyBox, 'idle');
+  fightOpen = false;
+  renderManual();
+}
+async function leaveTrack(){ await fadeTo(1); endTrack(); await fadeTo(0); }
+// stopového pokémona jsi porazil místo chycení → stopa zůstává, zpátky
+function trackDefeated(){
+  toast(`${NAMES[battle.enemy.id - 1]} omdlel a zmizel – stopa zůstává, zkus ho příště chytit.`);
+  setTimeout(leaveTrack, 1400);
+}

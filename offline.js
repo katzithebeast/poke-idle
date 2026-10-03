@@ -35,7 +35,7 @@ function simulateFight(p, e){
 
 function runOffline(ms){
   ms = Math.min(ms, OFFLINE_MAX);
-  if (!autoOn || ms < OFFLINE_MIN) return null;
+  if (!autoOn || ms < OFFLINE_MIN || battle.enemy.track) return null;
   const before = new Map(party.mons.map(m => [m.uid, { lvl: m.lvl, id: m.id }]));
   const coins0 = shop.coins;
   let t = 0, wins = 0, faints = 0;
