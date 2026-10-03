@@ -1,2 +1,2 @@
 // verze hry – přepisuje ji deploy.sh při každém nahrání na GitHub Pages
-var GAME_VERSION = '2026-10-03 03:57 · cbc1b02';
+var GAME_VERSION = '2026-10-03 04:07 · 5fea723';
