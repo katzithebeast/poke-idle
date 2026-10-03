@@ -44,6 +44,22 @@ function wantDs(){
 }
 
 /* ---------- DOM: kabátek, tlačítka, spodní displej, bezely ---------- */
+document.head.insertAdjacentHTML('beforeend', `<style>
+/* podklad pod oběma displeji – při přechodech (lov, boss…) nikdy neprosvítne obrázek kabátku */
+body.ds #ds::before, body.ds #ds::after{ content:''; position:fixed; background:#0c0c10; }
+body.ds #ds::before{ left:var(--tx); top:var(--ty); width:var(--tw); height:var(--th); }
+body.ds #ds::after{ left:var(--bx); top:var(--by); width:var(--bw); height:var(--bh); }
+/* velikost deníku (Nastavení) */
+body.ds .dex-grid{ grid-template-columns:repeat(var(--dex-cols, 5), minmax(0, 1fr)) !important; }
+body.ds[data-dex-cols="4"] .dex-card img{ width:64px; height:64px; }
+body.ds[data-dex-cols="4"] .dex-card .name{ font-size:11px; }
+body.ds[data-dex-cols="4"] .dex-card .num{ font-size:8px; }
+body.ds[data-dex-cols="4"] .dex-card.locked .q{ top:28px; font-size:18px; }
+body.ds[data-dex-cols="3"] .dex-card img{ width:88px; height:88px; }
+body.ds[data-dex-cols="3"] .dex-card .name{ font-size:13px; }
+body.ds[data-dex-cols="3"] .dex-card .num{ font-size:9px; }
+body.ds[data-dex-cols="3"] .dex-card.locked .q{ top:40px; font-size:22px; }
+</style>`);
 const dsEl = document.createElement('div');
 dsEl.id = 'ds';
 const dsBtns = document.createElement('div');
@@ -376,6 +392,26 @@ skinBtn.addEventListener('click', () => {
   relayout();
 });
 updateSkinBtn();
+// velikost deníku: kolik pokémonů na řádek (víc = menší)
+const DEX_SIZES = [{ k: 5, label: 'normální (5)' }, { k: 4, label: 'velký (4)' }, { k: 3, label: 'obří (3)' }];
+let dexCols = 5;
+try { const v = Number(localStorage.getItem('pokeIdle.dexCols')); if (DEX_SIZES.some(d => d.k === v)) dexCols = v; } catch {}
+const dexSizeBtn = document.createElement('button');
+dexSizeBtn.className = 'set-row';
+dexSizeBtn.title = 'Kolik pokémonů je v deníku na řádek';
+skinBtn.after(dexSizeBtn);
+function applyDexSize(){
+  document.documentElement.style.setProperty('--dex-cols', dexCols);
+  document.body.dataset.dexCols = dexCols;
+  setRow(dexSizeBtn, 'Velikost deníku', DEX_SIZES.find(d => d.k === dexCols).label);
+}
+dexSizeBtn.addEventListener('click', () => {
+  const i = DEX_SIZES.findIndex(d => d.k === dexCols);
+  dexCols = DEX_SIZES[(i + 1) % DEX_SIZES.length].k;
+  try { localStorage.setItem('pokeIdle.dexCols', dexCols); } catch {}
+  applyDexSize();
+});
+applyDexSize();
 orientBtn.addEventListener('click', () => {
   orientLock = !orientLock;
   try { localStorage.setItem('pokeIdle.orient', orientLock ? 'lock' : 'free'); } catch {}
