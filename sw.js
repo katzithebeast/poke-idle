@@ -6,12 +6,12 @@
    Sprity pokémonů (raw.githubusercontent.com): nejdřív cache – jednou
    stažený sprite už se nestahuje znovu a funguje bez internetu.
    ===================================================================== */
-const APP_CACHE = 'poke-idle-app-v22';
+const APP_CACHE = 'poke-idle-app-v23';
 const SPRITE_CACHE = 'poke-idle-sprites-v1';
 const NET_TIMEOUT = 10000;
 
 // hned při instalaci uložit celou hru (offline funguje už po prvním spuštění)
-const PRECACHE = ["./", "index.html", "version.js", "vendor/gifuct.js", "vendor/fonts/fonts.css", "assets/ds_skin.jpg", "assets/ds_skin_matte.jpg", "battle.js", "boss.js", "dev.js", "ds.js", "evolve.js", "offline.js", "party.js", "pixel_arenas.js", "pixel_sprites.js", "fx.js", "manual.js", "quests.js", "trainers.js", "story.js", "pokemon_data.js", "shop.js", "vendor/fonts/CHylV-3HFUT7aC4iv1TxGDR9Jn0Eiw.woff2", "vendor/fonts/CHylV-3HFUT7aC4iv1TxGDR9JnMEi1lR.woff2", "vendor/fonts/CHylV-3HFUT7aC4iv1TxGDR9JnkEi1lR.woff2", "vendor/fonts/m8JUjfVPf62XiF7kO-i9aAhAfmKi2Oud.woff2", "vendor/fonts/m8JUjfVPf62XiF7kO-i9aAhAfmyi2A.woff2", "vendor/fonts/m8JXjfVPf62XiF7kO-i9YL1la1OD.woff2", "vendor/fonts/m8JXjfVPf62XiF7kO-i9YLNlaw.woff2"];
+const PRECACHE = ["./", "index.html", "version.js", "vendor/gifuct.js", "vendor/fonts/fonts.css", "assets/ds_skin.jpg", "assets/ds_skin_matte.jpg", "assets/trainers/archer.png", "assets/trainers/ariana.png", "assets/trainers/blaine.png", "assets/trainers/bugsy.png", "assets/trainers/clay.png", "assets/trainers/cynthia.png", "assets/trainers/giovanni.png", "assets/trainers/jasmine.png", "assets/trainers/misty.png", "assets/trainers/morty.png", "assets/trainers/oak.png", "assets/trainers/petrel.png", "assets/trainers/proton.png", "assets/trainers/pryce.png", "assets/trainers/red.png", "assets/trainers/rocketgrunt.png", "assets/trainers/rocketgruntf.png", "assets/trainers/sabrina.png", "assets/trainers/teamrocket.png", "assets/trainers/volkner.png", "battle.js", "boss.js", "dev.js", "ds.js", "evolve.js", "offline.js", "party.js", "pixel_arenas.js", "pixel_sprites.js", "fx.js", "manual.js", "quests.js", "trainers.js", "story.js", "pokemon_data.js", "shop.js", "vendor/fonts/CHylV-3HFUT7aC4iv1TxGDR9Jn0Eiw.woff2", "vendor/fonts/CHylV-3HFUT7aC4iv1TxGDR9JnMEi1lR.woff2", "vendor/fonts/CHylV-3HFUT7aC4iv1TxGDR9JnkEi1lR.woff2", "vendor/fonts/m8JUjfVPf62XiF7kO-i9aAhAfmKi2Oud.woff2", "vendor/fonts/m8JUjfVPf62XiF7kO-i9aAhAfmyi2A.woff2", "vendor/fonts/m8JXjfVPf62XiF7kO-i9YL1la1OD.woff2", "vendor/fonts/m8JXjfVPf62XiF7kO-i9YLNlaw.woff2"];
 self.addEventListener('install', (e) => {
   self.skipWaiting();
   e.waitUntil(caches.open(APP_CACHE).then(c => c.addAll(PRECACHE.map(f => new Request(f, { cache: 'no-store' })))).catch(() => {}));

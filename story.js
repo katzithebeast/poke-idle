@@ -22,34 +22,34 @@ Object.assign(PORTRAITS, {
   l_aether:  { hair: ['#fff6c8', '#f2d26a', '#b8962a', '#5a440a'], style: 'puffy', outfit: ['#ffffff', '#f2ecd8', '#c8bc96', '#5a5038'], eyes: '#3a7ac8', lips: '#e08a9a' },
 });
 
-const PROF = { who: 'prof', name: 'Prof. Javor' };
+const PROF = { who: 'prof', name: 'Prof. Oak' };
 const LEADERS = {
-  ocean:    { name: 'Námořnice Marína', hi: ['Vlny tu šeptají o tvých výhrách.', 'Uvidíme, jestli ustojíš bouři mého Golducka!'],
+  ocean:    { name: 'Misty', hi: ['Vlny tu šeptají o tvých výhrách.', 'Uvidíme, jestli ustojíš bouři mého Golducka!'],
               win: ['Ach! Moře dnes stojí při tobě.', 'Prý se tu z hlubin vynořila stopa Kyogra…'], lose: ['Příliv tě smetl. Vrať se, až budeš silnější!'] },
-  desert:   { name: 'Archeolog Dunáš', hi: ['Kopal jsem tisíc let starý písek…', 'a nikdo ještě neprošel přes mého Rhydona!'],
+  desert:   { name: 'Clay', hi: ['Kopal jsem tisíc let starý písek…', 'a nikdo ještě neprošel přes mého Rhydona!'],
               win: ['Úžasné! Takový nález jsem nečekal.', 'Pod dunami se hýbe něco obrovského. Groudon?'], lose: ['Písek tě pohřbil. Zkus to znovu!'] },
-  jungle:   { name: 'Lovkyně Arachné', hi: ['Vlezl jsi mi do sítě.', 'Ariados, pomaž ho!'],
+  jungle:   { name: 'Bugsy', hi: ['Lezeš mi do mé hmyzí říše!', 'Ariados, pomaž ho!'],
               win: ['Moje síť… roztrhaná.', 'Mezi stromy prý zahlédli Celebiho.'], lose: ['Zamotal ses. Příště se dívej, kam šlapeš.'] },
-  mountain: { name: 'Horal Mrazík', hi: ['Na vrcholu je zima, chlapče.', 'Abomasnow tě zmrazí na kost!'],
+  mountain: { name: 'Pryce', hi: ['Na vrcholu je zima, mladíku.', 'Abomasnow tě zmrazí na kost!'],
               win: ['Hoho! Máš srdce horké jako sopka.', 'Nad ledovcem krouží modrý pták… Articuno.'], lose: ['Zmrzl jsi. Ohřej se a vrať se!'] },
-  grave:    { name: 'Médium Morana', hi: ['Duchové mi o tobě vyprávěli…', 'Gengar se na tebe těší.'],
+  grave:    { name: 'Morty', hi: ['Duchové mi o tobě vyprávěli…', 'Gengar se na tebe těší.'],
               win: ['Duchové… mlčí. To se nestává.', 'Z jiného světa prý prosvítá Giratina.'], lose: ['Duchové se smějí. Ještě nejsi připraven.'] },
-  storm:    { name: 'Pilot Hrom', hi: ['Létám bouřkami každý den.', 'Dragonite a já jsme rychlejší než blesk!'],
+  storm:    { name: 'Volkner', hi: ['Létám bouřkami každý den.', 'Dragonite a já jsme rychlejší než blesk!'],
               win: ['Přistání do bahna! Zasloužené.', 'V mracích se mihl Zapdos. Chytíš ho?'], lose: ['Blesk tě srazil. Zkus to znovu!'] },
-  volcano:  { name: 'Kovář Plamen', hi: ['V tomhle žáru kovám jen ty nejlepší.', 'Charizard, rozpal výheň!'],
+  volcano:  { name: 'Blaine', hi: ['V tomhle žáru kovám jen ty nejlepší.', 'Charizard, rozpal výheň!'],
               win: ['Ukul sis vítězství. Klobouk dolů!', 'Nad kráterem prý létá ohnivý pták… Moltres.'], lose: ['Spálil ses. Vychladni a přijď znovu.'] },
-  nether:   { name: 'Mystik Astor', hi: ['Viděl jsem tvou porážku ve snu.', 'Alakazam ji teď uskuteční.'],
+  nether:   { name: 'Sabrina', hi: ['Viděl jsem tvou porážku ve snu.', 'Alakazam ji teď uskuteční.'],
               win: ['Moje vize… se mýlila?!', 'Hluboko v rozpolceném světě čeká Mewtwo.'], lose: ['Jak jsem předpověděl.'] },
-  fel:      { name: 'Bojovnice Ocelka', hi: ['Žádné triky. Jen síla a čest.', 'Lucario, do boje!'],
+  fel:      { name: 'Jasmine', hi: ['Žádné triky. Jen síla a čest.', 'Lucario, do boje!'],
               win: ['Čestný boj. Byl jsi lepší.', 'V troskách se objevil stín… Darkrai.'], lose: ['Trénuj tvrději!'] },
-  aether:   { name: 'Strážkyně Aura', hi: ['Došel jsi až do nebes.', 'Rayquaza tě poslední zkouškou provede.'],
+  aether:   { name: 'Cynthia', hi: ['Došel jsi až do nebes.', 'Rayquaza tě poslední zkouškou provede.'],
               win: ['Jsi skutečný šampion.', 'Nad oblaky se probouzí Arceus – stvořitel všeho.'], lose: ['Nebesa tě ještě nepřijala. Vrať se!'] },
 };
 const leaderLines = (key, kind) => (LEADERS[key]?.[kind] || []).map(text => ({ who: 'l_' + key, name: LEADERS[key].name, text }));
 
 /* ---------- Úvod s profesorem (jednou, po prvním načtení) ---------- */
 const INTRO = [
-  [PROF, 'Ahoj! Já jsem profesor Javor. Vítej ve světě pokémonů!'],
+  [PROF, 'Ahoj! Já jsem profesor Oak. Vítej ve světě pokémonů!'],
   [PROF, 'Tvůj pokémon bojuje sám – za výhry dostáváš mince a zkušenosti.'],
   [PROF, 'Chceš bojovat sám? SELECTEM přepneš na ruční boj: A útok, X a Y speciály, B krytí.'],
   [PROF, 'Pokémony chytáš v boji: oslab je a zmáčkni SELECT. Pokébally koupíš v Obchodě (Y).'],
@@ -78,7 +78,7 @@ if (!introDone){
 /* ---------- Nastavení: přehrát úvod; dev nástroje: testy dialogů ---------- */
 const introBtn = document.createElement('button');
 introBtn.className = 'set-row';
-introBtn.innerHTML = '<span>Přehrát úvod s profesorem</span>';
+introBtn.innerHTML = '<span>Přehrát úvod s profesorem Oakem</span>';
 introBtn.addEventListener('click', () => { settingsMenu.classList.remove('open'); playIntro(); });
 document.getElementById('versionBtn').before(introBtn);
 const devT = document.getElementById('devTools');

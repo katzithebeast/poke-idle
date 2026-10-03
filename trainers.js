@@ -15,10 +15,16 @@ const TRAINERS = [
     hi: ['A ať je jich dvojnásob!', 'Bránit svět před zkázou… a pak ti vzít pokémony!'], lose: ['To snad ne… Team Rocket odlétá rychlostí světla!'], flee: ['Ani nestihl předvést svůj nejlepší útok!'] },
   { name: 'Raketák', title: 'Team Rocket', portrait: 'grunt', team: [19, 41, 88, 20, 42, 89],   // Rattata, Zubat, Grimer, Raticate, Golbat, Muk
     hi: ['Stůj! Tohle území patří Team Rocket.', 'Odevzdej pokémony, nebo bojuj!'], lose: ['Šéf mě zabije…'], flee: ['Tak jo, utíkej si!'] },
-  { name: 'Butch', title: 'Team Rocket', portrait: 'butch', team: [216, 228, 229, 217],          // Teddiursa, Houndour, Houndoom, Ursaring
-    hi: ['Jsem Butch! Ne Bob, ne Botch – BUTCH!', 'Ukaž, co umíš.'], lose: ['Tohle si Cassidy neodpustí…'], flee: ['Zbabělec! Ani jméno si nezapamatoval.'] },
-  { name: 'Cassidy', title: 'Team Rocket', portrait: 'cassidy', team: [88, 261, 262, 89],        // Grimer, Poochyena, Mightyena, Muk
-    hi: ['Jessie a James jsou amatéři.', 'Já jsem elita Team Rocket!'], lose: ['Nemožné! Tohle nikdo nesmí vědět!'], flee: ['Elita vždycky vyhraje.'] },
+  { name: 'Raketačka', title: 'Team Rocket', portrait: 'gruntf', team: [52, 23, 41, 109, 53],   // Meowth, Ekans, Zubat, Koffing, Persian
+    hi: ['Hej ty! Kam se ženeš?', 'Tvoji pokémoni se nám budou hodit.'], lose: ['Ugh… řeknu to veliteli.'], flee: ['Zbabělec!'] },
+  { name: 'Proton', title: 'Velitel Team Rocket', portrait: 'proton', team: [41, 42, 109, 110],  // Zubat, Golbat, Koffing, Weezing
+    hi: ['Jsem Proton, nejkrutější muž Team Rocket.', 'Nebudu se s tebou mazlit.'], lose: ['Tohle… se nestalo. Jasné?'], flee: ['Uteč, dokud můžeš!'] },
+  { name: 'Ariana', title: 'Velitelka Team Rocket', portrait: 'ariana', team: [24, 45, 198],     // Arbok, Vileplume, Murkrow
+    hi: ['Jsem Ariana, vrchní velitelka.', 'Giovanni se vrátí – a ty mi v tom nezabráníš.'], lose: ['Nepřijatelné! Ustupujeme!'], flee: ['Moudré rozhodnutí, dítě.'] },
+  { name: 'Archer', title: 'Velitel Team Rocket', portrait: 'archer', team: [228, 109, 229],      // Houndour, Koffing, Houndoom
+    hi: ['Archer, zástupce velitele.', 'Team Rocket znovu povstane!'], lose: ['Ten trenér je nebezpečný…'], flee: ['Ani bojovat neumíš?'] },
+  { name: 'Petrel', title: 'Velitel Team Rocket', portrait: 'petrel', team: [109, 110, 20],      // Koffing, Weezing, Raticate
+    hi: ['Hahaha! Petrel, mistr převleků!', 'Poznal jsi mě? Ne? Tak bojuj!'], lose: ['No dobře, dobře… prohrál jsem.'], flee: ['Hahaha, utekl!'] },
 ];
 const PLAYER_LINES = { hi: ['Team Rocket? Zase vy!', 'Jdeme na to!', 'Tohle si s vámi vyřídím.'], win: ['A zůstaňte pryč!', 'Dobrá práce, týme!', 'Příště to zkuste líp.'] };
 const pick = a => a[Math.floor(Math.random() * a.length)];
@@ -33,8 +39,18 @@ dialogEl.id = 'dialog';
 dialogEl.innerHTML = `<div class="dl-stage"><i class="dl-rays"></i><img class="dl-p dl-l" alt=""><img class="dl-p dl-r" alt=""></div>
   <div class="dl-box"><b class="dl-name"></b><p class="dl-text"></p><i class="dl-next">▼</i></div>`;
 document.body.appendChild(dialogEl);
-const bustCache = {};
-const bustUrl = k => bustCache[k] ||= pxBust(k).toDataURL();
+// originální sprity trenérů (Pokémon Showdown, uložené v assets/trainers)
+const TRAINER_SPRITES = {
+  player: 'red', prof: 'oak', jessie: 'teamrocket', james: 'teamrocket', grunt: 'rocketgrunt', gruntf: 'rocketgruntf',
+  proton: 'proton', ariana: 'ariana', archer: 'archer', petrel: 'petrel', giovanni: 'giovanni',
+  l_ocean: 'misty', l_desert: 'clay', l_jungle: 'bugsy', l_mountain: 'pryce', l_grave: 'morty',
+  l_storm: 'volkner', l_volcano: 'blaine', l_nether: 'sabrina', l_fel: 'jasmine', l_aether: 'cynthia',
+};
+const SPRITE_ACCENT = { red: '#d83a3a', oak: '#3aa8a0', teamrocket: '#e04a7a', rocketgrunt: '#5a5a6a', rocketgruntf: '#8a3a5a', proton: '#3a7a5a', ariana: '#c03a3a',
+  archer: '#4a8ac8', petrel: '#8a5ac8', giovanni: '#6a5040', misty: '#3a8ee8', clay: '#c8a868', bugsy: '#6ab06a', pryce: '#7ab4e8', morty: '#9a4ae0',
+  volkner: '#f2c230', blaine: '#e0502a', sabrina: '#c040c0', jasmine: '#9aa0b4', cynthia: '#f2d26a' };
+const bustUrl = k => `assets/trainers/${TRAINER_SPRITES[k] || 'rocketgrunt'}.png`;
+const accentOf = k => SPRITE_ACCENT[TRAINER_SPRITES[k]] || '#5a5a6a';
 let dialogRun = null;
 function showDialog(lines){
   return new Promise(resolve => {
@@ -47,7 +63,7 @@ function showDialog(lines){
       const L = lines[i], me = L.who === 'player';
       dialogEl.classList.toggle('speak-l', me);
       dialogEl.classList.toggle('speak-r', !me);
-      dialogEl.style.setProperty('--acc', (BUSTS[L.who] || BUSTS.grunt).accent);
+      dialogEl.style.setProperty('--acc', accentOf(L.who));
       dialogEl.querySelector('.dl-name').textContent = L.name;
       const t = dialogEl.querySelector('.dl-text');
       t.textContent = '';
@@ -195,9 +211,9 @@ document.head.insertAdjacentHTML('beforeend', `<style>
 }
 .dialog.speak-l .dl-stage{ --sx:28%; }
 .dl-rays{ position:absolute; inset:-40%; background:repeating-conic-gradient(from 0deg at var(--sx, 70%) 80%, color-mix(in srgb, var(--acc) 20%, transparent) 0 6deg, transparent 6deg 18deg); animation:spin 30s steps(60) infinite; opacity:.6; }
-.dl-p{ position:absolute; bottom:-6px; width:192px; height:192px; image-rendering:pixelated; transition:filter .15s, transform .15s; }
+.dl-p{ position:absolute; bottom:-14px; width:220px; height:220px; image-rendering:pixelated; transition:filter .15s, transform .15s; }
 .dl-p[hidden]{ display:none; }
-.dl-l{ left:-8px; } .dl-r{ right:-8px; }
+.dl-l{ left:-24px; } .dl-r{ right:-24px; }
 .dialog.speak-l .dl-r, .dialog.speak-r .dl-l{ filter:brightness(.35) saturate(.4); }
 .dialog.speak-r .dl-r{ transform:translateY(-4px); }
 .dialog.speak-l .dl-l{ transform:translateY(-4px); }
