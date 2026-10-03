@@ -200,12 +200,6 @@ function setFocus(el){
   if (!el) return;
   el.classList.add('ds-focus');
   // obchod: posun po celých stránkách (3 karty), nikdy napůl viditelná karta
-  const card = el.closest('#shopBody > *');
-  if (card){
-    const body = card.parentElement, cards = [...body.children], i = cards.indexOf(card);
-    cards[Math.floor(i / 3) * 3].scrollIntoView({ inline: 'start', block: 'nearest', behavior: 'smooth' });   // (zoom → nechat přepočet na prohlížeči)
-    return;
-  }
   el.scrollIntoView({ block: 'nearest', inline: 'nearest' });
 }
 function ensureFocus(){
@@ -252,6 +246,17 @@ function pickDir(list, from, dir){
 function moveFocus(dir){
   const list = ensureFocus();
   if (!focused) return;
+  // obchod (DS): ←→ mezi kartami stránky, na kraji přepne stránku
+  if (focused.closest('#shopBody') && (dir === 'left' || dir === 'right')){
+    const inShop = list.filter(el => el.closest('#shopBody'));
+    let next = pickDir(inShop, focused, dir);
+    if (!next && shopTurnPage(dir === 'right' ? 1 : -1)){
+      const vis = focusables(topLayer()).filter(el => el.closest('#shopBody'));
+      next = dir === 'right' ? vis[0] : vis[vis.length - 1];
+    }
+    if (next) setFocus(next); else beep(150, 0.04, 0.02, 'triangle');
+    return;
+  }
   const sp = scrollParent(focused);
   if (sp && !inView(focused, sp)){
     const vis = list.filter(el => sp.contains(el) && inView(el, sp));

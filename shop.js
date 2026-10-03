@@ -249,11 +249,9 @@ function renderShop(){
   } else {
     html = shop.hunts.map(monCardHtml).join('') || '<div class="dm-empty">Žádný vylosovaný pokémon nečeká. Otevři pokéball!</div>';
   }
-  // DS: celé stránky po 3 kartách (prázdná místa doplnit), ať je vždy vidět přesně 3 celé
-  const n = (html.match(/class="(ball-card|item-card|mon-tile)/g) || []).length;
-  if (n > 3 && n % 3) html += '<div class="pad-slot"></div>'.repeat(3 - n % 3);
   shopBody.innerHTML = html;
-  shopBody.scrollLeft = 0;   // nová záložka vždy od začátku
+  shopPage = 0;
+  applyShopPage();   // nová záložka vždy od začátku
   refreshShopState();
 }
 // jen čísla, záložky a dostupnost tlačítek – bez překreslení (ať se neresetují animace vitrín)
@@ -272,6 +270,47 @@ function refreshShopState(){
     b.textContent = { buy: 'Pokébally', items: 'Předměty', upgrades: 'Vylepšení', bag: 'Batoh', hunts: 'Lovy' }[b.dataset.tab] + (n ? ` · ${n}` : '');
   });
 }
+
+/* DS: obchod po stránkách po 3 kartách – vidět je jen aktuální stránka (žádné posouvání,
+   žádné useknuté karty), šipky ◀ ▶ ukazují, že je další nabídka. Přepíná D-pad ←→, šipky i tah prstem. */
+let shopPage = 0;
+const shopCards = () => [...shopBody.children].filter(el => !el.matches('.dm-section, .dm-empty'));
+function shopPages(){ return Math.max(1, Math.ceil(shopCards().length / 3)); }
+function applyShopPage(){
+  const ds = document.body.classList.contains('ds'), cards = shopCards(), pages = shopPages();
+  shopPage = Math.min(Math.max(0, shopPage), pages - 1);
+  cards.forEach((c, i) => { c.hidden = ds && Math.floor(i / 3) !== shopPage; });
+  shopBody.querySelectorAll('.pad-slot').forEach(p => p.remove());
+  if (ds && pages > 1) for (let k = cards.slice(shopPage * 3, shopPage * 3 + 3).length; k < 3; k++) shopBody.insertAdjacentHTML('beforeend', '<div class="pad-slot"></div>');
+  shopNav.hidden = !ds || pages < 2;
+  shopNav.querySelector('.sn-l').classList.toggle('off', shopPage === 0);
+  shopNav.querySelector('.sn-r').classList.toggle('off', shopPage >= pages - 1);
+  shopNav.querySelector('.sn-n').textContent = `${shopPage + 1} / ${pages}`;
+}
+function shopTurnPage(d){
+  const pages = shopPages();
+  if (!document.body.classList.contains('ds') || pages < 2 || shopPage + d < 0 || shopPage + d >= pages) return false;
+  shopPage += d;
+  applyShopPage();
+  beep(900, 0.03, 0.02);
+  return true;
+}
+const shopNav = document.createElement('div');
+shopNav.className = 'shop-nav';
+shopNav.hidden = true;
+shopNav.innerHTML = '<button class="sn-l" aria-label="Předchozí">◀</button><span class="sn-n"></span><button class="sn-r" aria-label="Další">▶</button>';
+shopBody.after(shopNav);
+shopNav.addEventListener('click', (e) => {
+  if (e.target.closest('.sn-l')) shopTurnPage(-1);
+  if (e.target.closest('.sn-r')) shopTurnPage(1);
+});
+let swipeX = null;
+shopBody.addEventListener('pointerdown', (e) => { swipeX = e.clientX; });
+shopBody.addEventListener('pointerup', (e) => {
+  if (swipeX == null) return;
+  const dx = e.clientX - swipeX; swipeX = null;
+  if (Math.abs(dx) > 40) shopTurnPage(dx < 0 ? 1 : -1);
+});
 
 function openShop(tab){
   if (hunt) return;

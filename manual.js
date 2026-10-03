@@ -71,17 +71,16 @@ body.ds.manual #dsPanel{ visibility:hidden; }
 .mp-st{ font:700 8px var(--font-title); text-transform:uppercase; padding:2px 4px 1px; }
 .mp-st.bad{ background:#7a2430; color:#ffd0d0; } .mp-st.good{ background:#2a5a3a; color:#d0ffd8; }
 .mp-vs{ color:var(--w-muted); font-size:9px; margin-left:4px; }
-/* kosočtverec jako na konzoli: X nahoře, Y vlevo, A vpravo, B dole; popisek vždy vedle tlačítka */
-.mp-pad{
-  flex:1; min-height:0; display:grid; grid-template-columns:1fr 1fr; grid-template-rows:1fr 1fr 1fr;
-  grid-template-areas:"x x" "y a" "b b"; align-items:center; column-gap:8px;
-}
-.mp-key{ all:unset; cursor:pointer; box-sizing:border-box; display:flex; align-items:center; gap:8px; padding:2px 4px; -webkit-tap-highlight-color:transparent; }
-.k-x{ grid-area:x; justify-self:center; } .k-b{ grid-area:b; justify-self:center; }
-.k-y{ grid-area:y; justify-self:end; flex-direction:row-reverse; } .k-a{ grid-area:a; justify-self:start; }
-.k-y .mp-lbl{ text-align:right; align-items:flex-end; }
+/* kosočtverec přesně jako na konzoli: tlačítka v pravidelné mřížce (stejné rozestupy),
+   popisky jsou mimo mřížku (absolutně), takže rozložení tlačítek neposouvají */
+.mp-pad{ flex:1; min-height:0; position:relative; }
+.mp-key{ all:unset; cursor:pointer; position:absolute; width:52px; height:52px; margin:-26px 0 0 -26px; -webkit-tap-highlight-color:transparent; }
+.k-x{ left:50%; top:20%; } .k-b{ left:50%; top:80%; }
+.k-y{ left:calc(50% - 60px); top:50%; } .k-a{ left:calc(50% + 60px); top:50%; }
+.mp-lbl{ position:absolute; top:50%; transform:translateY(-50%); left:calc(100% + 8px); }
+.k-y .mp-lbl{ left:auto; right:calc(100% + 8px); text-align:right; align-items:flex-end; }
 .mp-ball{
-  width:52px; height:52px; flex:none; display:flex; align-items:center; justify-content:center;
+  width:52px; height:52px; display:flex; align-items:center; justify-content:center;
   background:center / 100% 100% no-repeat; image-rendering:pixelated;
   font:700 19px var(--font-title); color:#ececf2; text-shadow:0 2px 0 #000;
 }
