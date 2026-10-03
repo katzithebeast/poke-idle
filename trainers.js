@@ -23,22 +23,31 @@ const TRAINERS = [
 const PLAYER_LINES = { hi: ['Team Rocket? Zase vy!', 'Jdeme na to!', 'Tohle si s vámi vyřídím.'], win: ['A zůstaňte pryč!', 'Dobrá práce, týme!', 'Příště to zkuste líp.'] };
 const pick = a => a[Math.floor(Math.random() * a.length)];
 
-/* ---------- Dialog: portrét + jméno + text po písmenech (A / ťuk = dál) ---------- */
+/* ---------- Dialog jako ve vizuálním románu ----------
+   Celý spodní displej: vlevo ty, vpravo druhá postava (busty 64 × 64 z pixel_sprites.js),
+   kdo mluví, svítí a je vepředu, druhý je ztlumený. Pozadí v barvě mluvčího,
+   dole textové okno s jménem a textem po písmenech (A / ťuk = dál). */
 const dialogEl = document.createElement('div');
 dialogEl.className = 'dialog';
 dialogEl.id = 'dialog';
-dialogEl.innerHTML = '<div class="dl-face"></div><div class="dl-body"><b class="dl-name"></b><p class="dl-text"></p></div><i class="dl-next">▼</i>';
+dialogEl.innerHTML = `<div class="dl-stage"><i class="dl-rays"></i><img class="dl-p dl-l" alt=""><img class="dl-p dl-r" alt=""></div>
+  <div class="dl-box"><b class="dl-name"></b><p class="dl-text"></p><i class="dl-next">▼</i></div>`;
 document.body.appendChild(dialogEl);
-const portraitCache = {};
-const portraitUrl = k => portraitCache[k] ||= pxPortrait(k).toDataURL();
+const bustCache = {};
+const bustUrl = k => bustCache[k] ||= pxBust(k).toDataURL();
 let dialogRun = null;
 function showDialog(lines){
   return new Promise(resolve => {
     let i = 0, typing = null;
+    const other = lines.find(l => l.who !== 'player')?.who;
+    const imgL = dialogEl.querySelector('.dl-l'), imgR = dialogEl.querySelector('.dl-r');
+    imgL.src = bustUrl('player');
+    imgR.hidden = !other; if (other) imgR.src = bustUrl(other);
     const show = () => {
-      const L = lines[i], left = L.who === 'player';
-      dialogEl.classList.toggle('right', !left);
-      dialogEl.querySelector('.dl-face').style.backgroundImage = `url(${portraitUrl(L.who === 'player' ? 'player' : L.who)})`;
+      const L = lines[i], me = L.who === 'player';
+      dialogEl.classList.toggle('speak-l', me);
+      dialogEl.classList.toggle('speak-r', !me);
+      dialogEl.style.setProperty('--acc', (BUSTS[L.who] || BUSTS.grunt).accent);
       dialogEl.querySelector('.dl-name').textContent = L.name;
       const t = dialogEl.querySelector('.dl-text');
       t.textContent = '';
@@ -46,7 +55,7 @@ function showDialog(lines){
       clearInterval(typing);
       typing = setInterval(() => {
         t.textContent = L.text.slice(0, ++n);
-        if (n % 2) beep(L.who === 'player' ? 700 : 520, 0.015, 0.012, 'square');
+        if (n % 2) beep(me ? 700 : 520, 0.015, 0.012, 'square');
         if (n >= L.text.length){ clearInterval(typing); typing = null; }
       }, 24);
     };
@@ -101,7 +110,7 @@ function updateTrainerCall(){
 
 async function startTrainer(){
   if (!challengeActive() || hunt || bossFight || battle.enemy.track || battle.enemy.trainer) return;
-  if (!activeMon() || activeMon().fainted) return toast('Nejdřív pošli do boje zdravého pokémona (Tým).');
+  if (!guardReady()) return;
   closeShop(); closeTeam(); closeJournal(); closePanel();
   const tr = TRAINERS[battle.challenge.t], [a, b] = ARENA_LEVELS[arena];
   const size = 2 + (ARENA_ORDER.indexOf(arena) >= 3 ? 1 : 0);
@@ -119,10 +128,12 @@ async function startTrainer(){
 function sendTrainerMon(first){
   const c = battle.trainerCtx, tr = TRAINERS[c.t], id = c.team[c.idx];
   const data = { id, shiny: false, lvl: c.lvl, hp: wildStats(id, c.lvl).hp, trainer: true, _k: Date.now() + Math.random() };
-  spawnEnemy(data);
-  openFight();
-  say(first ? `${tr.name}: „Připrav se na potíže!“ Posílá ${NAMES[id - 1]} (Lv ${c.lvl}).`
-            : `${tr.name} posílá dalšího: ${NAMES[id - 1]}! (${c.idx + 1}/${c.team.length})`);
+  fightOpen = false; renderManual();
+  spawnEnemy(data, { ball: c.t === 2 ? 'poke' : 'great' }).then(() => {
+    openFight();
+    say(first ? `${tr.name}: „Připrav se na potíže!“ Posílá ${NAMES[id - 1]} (Lv ${c.lvl}).`
+              : `${tr.name} posílá dalšího: ${NAMES[id - 1]}! (${c.idx + 1}/${c.team.length})`);
+  });
 }
 // pokémon trenéra poražen (volá onEnemyDefeated v index.html)
 function trainerNext(){
@@ -168,26 +179,45 @@ if (battle.trainerCtx && !battle.enemy.trainer) delete battle.trainerCtx;
 document.head.insertAdjacentHTML('beforeend', `<style>
 .trainer-call{ bottom:auto; top:70px; }
 .dialog{
-  position:fixed; left:50%; bottom:20px; z-index:93; transform:translateX(-50%);
-  display:none; align-items:flex-start; gap:12px; box-sizing:border-box;
-  width:min(520px, calc(100vw - 24px)); min-height:110px; padding:12px 14px;
-  color:var(--w-fg); background:var(--w-bg); box-shadow:var(--w-frame);
+  position:fixed; left:50%; bottom:16px; z-index:93; transform:translateX(-50%);
+  display:none; flex-direction:column; box-sizing:border-box; overflow:hidden;
+  width:min(440px, calc(100vw - 24px)); height:330px;
+  color:#fff; background:#101016; box-shadow:var(--w-frame);
   font-family:var(--font-body); -webkit-font-smoothing:none; zoom:var(--zoom, 1); cursor:pointer;
 }
 .dialog.open{ display:flex; }
-.dialog.right{ flex-direction:row-reverse; text-align:right; }
-.dl-face{ width:84px; height:84px; flex:none; background:#3a4a6a center / 100% 100% no-repeat; image-rendering:pixelated; box-shadow:0 0 0 3px var(--ink); }
-.dialog.right .dl-face{ background-color:#5a2a3a; }
-.dl-body{ flex:1; min-width:0; display:flex; flex-direction:column; gap:6px; }
-.dl-name{ font:700 13px var(--font-title); color:var(--gold); }
-.dialog.right .dl-name{ color:#ff8a9a; }
-.dl-text{ margin:0; font:15px var(--font-body); line-height:1.35; }
-.dl-next{ position:absolute; right:12px; bottom:8px; font:700 12px var(--font-title); font-style:normal; color:var(--gold); animation:bossPulse 0.8s steps(2) infinite; }
-.dialog.right .dl-next{ right:auto; left:12px; }
+.dl-stage{
+  position:relative; flex:1; overflow:hidden;
+  background:
+    repeating-linear-gradient(0deg, rgba(0,0,0,.18) 0 2px, transparent 2px 4px),
+    radial-gradient(ellipse 70% 90% at var(--sx, 70%) 100%, color-mix(in srgb, var(--acc) 55%, #101016) 0, #101016 75%);
+  transition:background-position .2s;
+}
+.dialog.speak-l .dl-stage{ --sx:28%; }
+.dl-rays{ position:absolute; inset:-40%; background:repeating-conic-gradient(from 0deg at var(--sx, 70%) 80%, color-mix(in srgb, var(--acc) 20%, transparent) 0 6deg, transparent 6deg 18deg); animation:spin 30s steps(60) infinite; opacity:.6; }
+.dl-p{ position:absolute; bottom:-6px; width:192px; height:192px; image-rendering:pixelated; transition:filter .15s, transform .15s; }
+.dl-p[hidden]{ display:none; }
+.dl-l{ left:-8px; } .dl-r{ right:-8px; }
+.dialog.speak-l .dl-r, .dialog.speak-r .dl-l{ filter:brightness(.35) saturate(.4); }
+.dialog.speak-r .dl-r{ transform:translateY(-4px); }
+.dialog.speak-l .dl-l{ transform:translateY(-4px); }
+.dl-box{
+  position:relative; flex:none; min-height:96px; box-sizing:border-box; padding:22px 14px 12px;
+  background:#f4eedb; color:var(--ink);
+  box-shadow:inset 0 0 0 3px var(--ink), inset 0 0 0 6px #fff, inset 0 0 0 8px var(--acc);
+}
+.dl-name{
+  position:absolute; top:-12px; left:14px; padding:5px 9px 4px;
+  font:700 12px var(--font-title); letter-spacing:.05em; color:#fff; background:var(--acc);
+  box-shadow:0 0 0 3px var(--ink); text-shadow:1px 1px 0 rgba(0,0,0,.4);
+}
+.dialog.speak-r .dl-name{ left:auto; right:14px; }
+.dl-text{ margin:0; font:15px var(--font-body); line-height:1.4; min-height:42px; }
+.dl-next{ position:absolute; right:12px; bottom:8px; font:700 12px var(--font-title); font-style:normal; color:var(--acc); animation:bossPulse .8s steps(2) infinite; }
 body.ds .dialog{
   zoom:var(--dsk); transform:none; box-shadow:none; bottom:auto;
-  left:calc(var(--bx) / var(--dsk)); top:calc((var(--by) + var(--bh)) / var(--dsk) - 132px);
-  width:calc(var(--bw) / var(--dsk)); min-height:132px; z-index:93;
+  left:calc(var(--bx) / var(--dsk)); top:calc(var(--by) / var(--dsk));
+  width:calc(var(--bw) / var(--dsk)); height:calc(var(--bh) / var(--dsk));
 }
 body.ds.dialoging #dsPanel, body.ds.dialoging .manual-panel{ visibility:hidden; }
 .dsp-trainer{ background:#3a2a5a !important; color:#fff !important; animation:bossPulse 1.2s steps(2) infinite !important; }

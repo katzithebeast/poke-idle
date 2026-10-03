@@ -128,3 +128,45 @@ function spawnGlow(box, color = '#fff2b0'){
     { filter: 'none' },
   ], { duration: 800, easing: 'steps(7)' });
 }
+
+/* ---------- Pokémon trenéra: shora spadne pokéball, odrazí se, otevře se a vyleze z něj ---------- */
+async function ballDrop(box, type = 'poke'){
+  const anim = box.querySelector('.anim');
+  anim.style.opacity = '0';
+  const k = arenaPixelSize ? arenaPixelSize() : 2;
+  const br = box.getBoundingClientRect(), wr = world.getBoundingClientRect();
+  const x = br.left + br.width / 2 - wr.left, gy = br.bottom - wr.top - 6 * k;
+  const ball = document.createElement('div');
+  ball.className = 'thrown-ball';
+  const bc = pxBallCanvas(type, 12);
+  bc.style.width = bc.style.height = 12 * k + 'px';
+  ball.appendChild(bc);
+  world.appendChild(ball);
+  const at = (y, rot = 0, s = 1) => `translate(${x}px, ${y}px) translate(-50%, -50%) rotate(${rot}deg) scale(${s})`;
+  const top = -20 * k;
+  ball.style.transform = at(gy);
+  beep(600, 0.05, 0.03, 'triangle');
+  await ball.animate([
+    { transform: at(top, -200), offset: 0, easing: 'ease-in' },
+    { transform: at(gy, 0), offset: 0.5, easing: 'ease-out' },
+    { transform: at(gy - 14 * k, 40), offset: 0.68, easing: 'ease-in' },
+    { transform: at(gy, 60), offset: 0.82, easing: 'ease-out' },
+    { transform: at(gy - 4 * k, 70), offset: 0.91, easing: 'ease-in' },
+    { transform: at(gy, 80), offset: 1 },
+  ], { duration: 900, easing: 'linear' }).finished;
+  beep(220, 0.05, 0.04, 'triangle');
+  ball.style.transform = at(gy, 0);
+  await bc.animate([{ transform: 'rotate(0)' }, { transform: 'rotate(-18deg)' }, { transform: 'rotate(14deg)' }, { transform: 'rotate(0)' }],
+    { duration: 380, easing: 'steps(6)' }).finished;
+  // otevření: záblesk + kruh světla, ball zmizí, pokémon vyroste z bílé siluety
+  beep(1200, 0.08, 0.05); beep(1600, 0.1, 0.04, 'square', 0.06);
+  ball.animate([{ filter: 'brightness(1)', transform: at(gy, 0, 1) }, { filter: 'brightness(5)', transform: at(gy, 0, 1.6), opacity: 0 }],
+    { duration: 260, fill: 'forwards' }).finished.then(() => ball.remove());
+  window.spawnGlow?.(box, '#ffffff');
+  anim.style.opacity = '';
+  await anim.animate([
+    { transform: 'scale(.15)', filter: 'brightness(0) invert(1)', opacity: 0.9, transformOrigin: '50% 100%' },
+    { transform: 'scale(1.08)', filter: 'brightness(0) invert(1)', opacity: 1, offset: 0.55, transformOrigin: '50% 100%' },
+    { transform: 'scale(1)', filter: 'none', opacity: 1, transformOrigin: '50% 100%' },
+  ], { duration: 520, easing: 'ease-out' }).finished;
+}

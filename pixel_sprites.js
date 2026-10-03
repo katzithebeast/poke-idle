@@ -498,3 +498,147 @@ function pxPortrait(key){
   c.getContext('2d').putImageData(new ImageData(buf, N, N), 0, 0);
   return c;
 }
+
+/* ---------- Busty do dialogů (64 × 64) ----------
+   Větší a podrobnější portréty: tvar obličeje s bradou, anime oči (duhovka, zornice,
+   odlesk, linka řas), obočí podle povahy, účesy z několika vrstev (vzadu / vpředu),
+   oblečení (uniforma Team Rocket s R, mikina, plášť). Selektivní obrysy jako u trenéra. */
+const BUST_SKIN = ['#ffe6d2', '#f4c8a6', '#d29a78', '#7a4a32'];
+const BUSTS = {
+  player:  { accent: '#d83a3a', hair: ['#f8dcaa', '#dcae72', '#a8783e', '#5e3c18'], style: 'cap', hat: ['#ff7a68', '#dc3432', '#962030', '#4e0c16'], hatFront: '#ffffff',
+             outfit: 'hoodie', eyes: '#5a3a1a', brow: 'calm', mouth: 'smile' },
+  jessie:  { accent: '#e04a7a', hair: ['#ff9ac0', '#e8508a', '#a82a5a', '#4e0a26'], style: 'jessie', outfit: 'rocketW', eyes: '#2a7aa8', brow: 'smug', mouth: 'smirk', lips: '#d83a5a', earring: '#4ad86a' },
+  james:   { accent: '#8a78d8', hair: ['#d4c8ff', '#9484e0', '#5c4caa', '#26195a'], style: 'james', outfit: 'rocketW', eyes: '#3a7a3a', brow: 'smug', mouth: 'smirk', rose: true },
+  butch:   { accent: '#3aa868', hair: ['#9aecb0', '#40b070', '#1e6a3e', '#0a3018'], style: 'butch', outfit: 'rocketB', eyes: '#2a2a3a', brow: 'angry', mouth: 'frown' },
+  cassidy: { accent: '#f2c84a', hair: ['#fff4b0', '#f4cc50', '#b88a1a', '#5a3e08'], style: 'cassidy', outfit: 'rocketB', eyes: '#7a2a9a', brow: 'smug', mouth: 'smirk', lips: '#d84a6a' },
+  grunt:   { accent: '#5a5a6a', hair: ['#7a6a5a', '#4a3a30', '#2a201a', '#0e0a08'], style: 'cap', hat: ['#5a5a6a', '#2c2c36', '#18181e', '#060608'], hatFront: null, hatR: true,
+             outfit: 'rocketB', eyes: '#1a1a1a', brow: 'angry', mouth: 'frown' },
+  prof:    { accent: '#3aa8a0', hair: ['#f4f4f8', '#cfcfdc', '#8e8ea0', '#3a3a48'], style: 'prof', outfit: 'coat', eyes: '#4a3a2a', brow: 'calm', mouth: 'smile', wrinkle: true },
+  l_ocean:   { accent: '#3a8ee8', hair: ['#a4dcff', '#3a8ee8', '#1e4e9a', '#0a2050'], style: 'long', outfit: ['#5a7ac0', '#2e4888', '#1a2c56', '#0a142c'], eyes: '#1a5aa8', brow: 'calm', mouth: 'smile', lips: '#e07080' },
+  l_desert:  { accent: '#c8a868', hair: ['#c89a6a', '#8a5e34', '#5a3a1a', '#2a1808'], style: 'cap', hat: ['#f0dcb0', '#cfae70', '#8a6a3a', '#4a3418'], hatFront: null,
+               outfit: ['#e0c088', '#b08e50', '#6e5428', '#342408'], eyes: '#3a2a1a', brow: 'calm', mouth: 'smile' },
+  l_jungle:  { accent: '#6ab06a', hair: ['#a888c8', '#664088', '#3e2256', '#1a0a2c'], style: 'cassidy', outfit: ['#78bc78', '#3e823e', '#245424', '#0e2a0e'], eyes: '#b02a2a', brow: 'smug', mouth: 'smirk', lips: '#8a3a5a' },
+  l_mountain:{ accent: '#7ab4e8', hair: ['#ffffff', '#dce8f4', '#a0b4c8', '#4a5a6a'], style: 'prof', outfit: ['#aad6f4', '#5e9ed4', '#2c5c8c', '#0e2a48'], eyes: '#2a4a6a', brow: 'calm', mouth: 'smile', beard: true },
+  l_grave:   { accent: '#9a4ae0', hair: ['#8a6aaa', '#42285a', '#261634', '#0c0614'], style: 'long', outfit: ['#664488', '#40245a', '#261434', '#0c0614'], eyes: '#d040d0', brow: 'calm', mouth: 'flat', lips: '#6a2a5a' },
+  l_storm:   { accent: '#f2c230', hair: ['#606070', '#30303c', '#1c1c24', '#08080c'], style: 'cap', hat: ['#fff27a', '#f2c230', '#a87b12', '#4a3408'], hatFront: null,
+               outfit: ['#5272b8', '#2e3e80', '#1a2452', '#080c28'], eyes: '#2a2a3a', brow: 'smug', mouth: 'smile' },
+  l_volcano: { accent: '#e0502a', hair: ['#ffa070', '#e2522a', '#a42c14', '#4a0e06'], style: 'butch', outfit: ['#ffb474', '#e07c2a', '#a24c14', '#4a1e06'], eyes: '#2a1a0a', brow: 'angry', mouth: 'smile', beard: true },
+  l_nether:  { accent: '#9a4ae0', hair: ['#dca4ff', '#9c4ce2', '#5c2aa2', '#240a4a'], style: 'james', outfit: ['#504060', '#2e2240', '#1a1028', '#08040e'], eyes: '#e050e0', brow: 'calm', mouth: 'flat' },
+  l_fel:     { accent: '#9aa0b4', hair: ['#d4d8e4', '#9ea4b8', '#5c6276', '#24283a'], style: 'butch', outfit: ['#b4b8cc', '#7e8298', '#4c5064', '#1e2030'], eyes: '#3a3a4a', brow: 'angry', mouth: 'flat' },
+  l_aether:  { accent: '#f2d26a', hair: ['#fff8d0', '#f4d670', '#b8962a', '#5a440a'], style: 'long', outfit: ['#ffffff', '#f2ecd8', '#c8bc96', '#5a5038'], eyes: '#3a7ac8', brow: 'calm', mouth: 'smile', lips: '#e08a9a' },
+};
+function pxBust(key){
+  const S = BUSTS[key] || BUSTS.grunt, N = 64, H = S.hair;
+  const buf = new Uint8ClampedArray(N * N * 4);
+  const put = (x, y, col) => {
+    x = Math.round(x); y = Math.round(y);
+    if (x < 0 || y < 0 || x >= N || y >= N || !col) return;
+    const [r, g, b, a] = pxHex(col), i = (y * N + x) * 4;
+    buf[i] = r; buf[i + 1] = g; buf[i + 2] = b; buf[i + 3] = a;
+  };
+  const shade = (pal, nx, ny) => pxShade(pal, nx, ny, 0.68, 0.12);
+  const ell = (cx, cy, rx, ry, pal, o = {}) => {
+    for (let y = Math.floor(cy - ry - 1); y <= cy + ry + 1; y++) for (let x = Math.floor(cx - rx - 1); x <= cx + rx + 1; x++){
+      if (o.clip && !o.clip(x, y)) continue;
+      const nx = (x + 0.5 - cx) / rx, ny = (y + 0.5 - cy) / ry;
+      if (nx * nx + ny * ny <= 1) put(x, y, o.flat || shade(pal, nx, ny));
+      else if (o.line !== false && ((x + 0.5 - cx) / (rx + 1)) ** 2 + ((y + 0.5 - cy) / (ry + 1)) ** 2 <= 1) put(x, y, pal[3]);
+    }
+  };
+  const cap = (x1, y1, x2, y2, r, pal, o = {}) => {
+    const vx = x2 - x1, vy = y2 - y1, L2 = vx * vx + vy * vy || 1;
+    for (let y = Math.floor(Math.min(y1, y2) - r - 2); y <= Math.max(y1, y2) + r + 2; y++)
+      for (let x = Math.floor(Math.min(x1, x2) - r - 2); x <= Math.max(x1, x2) + r + 2; x++){
+        const px = x + 0.5, py = y + 0.5, t = Math.max(0, Math.min(1, ((px - x1) * vx + (py - y1) * vy) / L2));
+        const ex = px - (x1 + vx * t), ey = py - (y1 + vy * t), d = Math.hypot(ex, ey), rr = r * (o.taper ? 1 - t * o.taper : 1);
+        if (d <= rr) put(x, y, shade(pal, ex / rr, ey / rr));
+        else if (o.line !== false && d <= rr + 1) put(x, y, pal[3]);
+      }
+  };
+  const merged = f => { f(true); f(false); };
+  const rect = (x0, y0, x1, y1, col) => { for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) put(x, y, col); };
+  const OUT = {
+    rocketW: ['#ffffff', '#e4e4ee', '#a8a8bc', '#3a3a4a'], rocketB: ['#5e5e70', '#30303c', '#1c1c24', '#08080c'],
+    hoodie: ['#5a5a70', '#30303e', '#1e1e28', '#0e0e14'], coat: ['#ffffff', '#ecedf4', '#b0b2c4', '#4a4c5a'],
+  };
+  const outfit = typeof S.outfit === 'string' ? OUT[S.outfit] : S.outfit;
+
+  // 1) vlasy vzadu
+  if (S.style === 'jessie'){
+    merged(l => {
+      ell(32, 26, 18, 17, H, { line: l });
+      cap(46, 22, 56, 38, 7, H, { line: l }); cap(56, 38, 52, 54, 6.5, H, { line: l }); cap(52, 54, 58, 63, 5.5, H, { line: l, taper: 0.4 });
+    });
+  }
+  if (S.style === 'long'){ merged(l => { ell(32, 27, 16, 16, H, { line: l }); cap(19, 30, 17, 56, 6, H, { line: l, taper: 0.3 }); cap(45, 30, 47, 56, 6, H, { line: l, taper: 0.3 }); }); }
+  if (S.style === 'cassidy'){ merged(l => { ell(32, 26, 16, 15, H, { line: l }); ell(17, 40, 7, 9, H, { line: l }); ell(47, 40, 7, 9, H, { line: l }); }); }
+  if (S.style === 'james'){ merged(l => { ell(32, 25, 15.5, 14, H, { line: l }); cap(22, 30, 21, 44, 5, H, { line: l, taper: 0.5 }); cap(42, 30, 44, 44, 5, H, { line: l, taper: 0.5 }); }); }
+  if (S.style === 'cap' || S.style === 'butch' || S.style === 'prof') ell(32, 26, 15, 14, H);
+
+  // 2) tělo: ramena, krk, oblečení
+  ell(32, 64, 27, 15, outfit);
+  if (S.outfit === 'hoodie'){ ell(32, 50, 11, 3.5, ['#7a7a90', '#4c4c5c', '#30303c', '#14141a']); rect(27, 53, 27, 60, '#a0a0b0'); rect(37, 53, 37, 60, '#a0a0b0'); }
+  if (S.outfit === 'rocketW' || S.outfit === 'rocketB'){
+    for (let y = 49; y < 60; y++){ const w = Math.max(0, 6 - (y - 49) * 0.6); rect(Math.round(32 - w), y, Math.round(32 + w), y, S.outfit === 'rocketW' ? '#22222c' : '#0c0c10'); }   // černý límec / tričko do V
+    const R = ['1110', '1001', '1110', '1010', '1001'];
+    R.forEach((row, y) => [...row].forEach((ch, x) => { if (ch === '1'){ put(37 + x, 53 + y, '#e02828'); put(37 + x, 54 + y, null); } }));
+    R.forEach((row, y) => [...row].forEach((ch, x) => ch === '1' && put(37 + x, 53 + y, '#e02828')));
+  }
+  if (S.outfit === 'coat'){ for (let y = 49; y < 64; y++){ const w = Math.max(1, 7 - (y - 49) * 0.45); rect(Math.round(32 - w), y, Math.round(32 + w), y, '#d83a3a'); } rect(31, 52, 33, 63, '#7a1a1a'); }
+  cap(32, 42, 32, 49, 4, BUST_SKIN);
+
+  // 3) hlava: uši, obličej s bradou
+  ell(18.5, 31, 2.6, 4, BUST_SKIN); ell(45.5, 31, 2.6, 4, BUST_SKIN);
+  merged(l => { ell(32, 28, 13, 13, BUST_SKIN, { line: l }); ell(32, 35, 9.5, 9, BUST_SKIN, { line: l }); });
+  if (S.earring){ put(18, 36, S.earring); put(18, 37, S.earring); put(46, 36, S.earring); put(46, 37, S.earring); }
+  // oči
+  for (const [ex, side] of [[26, -1], [38, 1]]){
+    rect(ex - 3, 27, ex + 2, 27, '#1a1420');                               // linka řas
+    put(ex + 3 * side, 26, '#1a1420');
+    rect(ex - 2, 28, ex + 1, 31, '#ffffff');                               // bělmo
+    rect(ex - 1, 28, ex + 1, 31, S.eyes); rect(ex - 1, 28, ex + 1, 28, '#1a1420');
+    rect(ex, 29, ex, 30, '#0a0810');                                        // zornice
+    put(ex - 1, 29, '#ffffff');                                             // odlesk
+    // obočí podle povahy
+    const by = 23, tilt = { calm: [0, 0], smug: [1, -1], angry: [-1, 1] }[S.brow] || [0, 0];
+    for (let i = -2; i <= 2; i++) put(ex + i, by + Math.round((i * side > 0 ? tilt[1] : tilt[0]) * Math.abs(i) / 2), H[3]);
+  }
+  put(32, 34, BUST_SKIN[2]); put(33, 35, BUST_SKIN[2]);                    // nos
+  put(23, 34, '#f4a8a0'); put(24, 34, '#f4a8a0'); put(40, 34, '#f4a8a0'); put(41, 34, '#f4a8a0');   // tváře
+  const mc = S.lips || '#8a4a40';
+  if (S.mouth === 'smile'){ rect(30, 39, 34, 39, mc); put(29, 38, mc); put(35, 38, mc); }
+  else if (S.mouth === 'smirk'){ rect(30, 39, 33, 39, mc); put(34, 38, mc); put(35, 37, mc); }
+  else if (S.mouth === 'frown'){ rect(30, 39, 34, 39, mc); put(29, 40, mc); put(35, 40, mc); }
+  else rect(30, 39, 34, 39, mc);
+  if (S.beard) merged(l => { ell(32, 41, 9, 5, H, { line: l }); ell(26, 37, 3, 3, H, { line: l }); ell(38, 37, 3, 3, H, { line: l }); });
+  if (S.wrinkle){ put(21, 30, BUST_SKIN[2]); put(43, 30, BUST_SKIN[2]); }
+  if (S.rose){ ell(46, 56, 3, 3, ['#ff7a8a', '#e0304a', '#901a2a', '#4a0a14']); put(45, 55, '#ffb0c0'); cap(46, 59, 44, 63, 0.8, ['#4ad86a', '#2a9a48', '#1a6030', '#0a2a14'], { line: false }); }
+
+  // 4) vlasy vpředu / čepice
+  if (S.style === 'cap'){
+    const hat = S.hat;
+    ell(32, 19, 15.5, 10, hat, { clip: (x, y) => y <= 22 });
+    merged(l => cap(16, 23, 48, 23, 2.2, hat, { line: l }));               // kšilt zepředu
+    for (let x = 17; x <= 47; x++) put(x, 25, hat[3]);
+    if (S.hatFront) ell(32, 16, 6, 4.5, [S.hatFront, S.hatFront, '#dcdce8', hat[3]], { clip: (x, y) => y <= 20 });
+    if (S.hatR) ['1110', '1001', '1110', '1010', '1001'].forEach((row, y) => [...row].forEach((c, x) => c === '1' && put(30 + x, 12 + y, '#e02828')));
+    // vlasy pod kšiltem jen po stranách (u spánků) a krátká ofina uprostřed – oči zůstanou volné
+    merged(l => { cap(19, 25, 18, 33, 2, H, { line: l, taper: 0.4 }); cap(45, 25, 46, 33, 2, H, { line: l, taper: 0.4 }); cap(31, 26, 30, 27, 1.4, H, { line: l }); cap(33.5, 26, 34.5, 27, 1.4, H, { line: l }); });
+  } else if (S.style === 'jessie'){
+    merged(l => { ell(32, 18, 15, 9, H, { line: l }); cap(20, 18, 17, 34, 4.5, H, { line: l, taper: 0.5 }); cap(25, 16, 22, 25, 4, H, { line: l, taper: 0.6 }); cap(36, 15, 42, 24, 4, H, { line: l, taper: 0.6 }); cap(30, 15, 31, 23, 3.4, H, { line: l, taper: 0.6 }); });
+  } else if (S.style === 'james'){
+    merged(l => { ell(32, 18, 14.5, 8.5, H, { line: l }); cap(26, 15, 38, 28, 5, H, { line: l, taper: 0.55 }); cap(20, 20, 19, 31, 3.4, H, { line: l, taper: 0.5 }); });
+  } else if (S.style === 'butch'){
+    merged(l => { ell(32, 18, 14, 8, H, { line: l }); for (const [x, y] of [[20, 12], [27, 9], [35, 9], [43, 12]]) cap(x, y + 6, x + (x - 32) * 0.15, y, 2.6, H, { line: l, taper: 0.7 }); cap(19, 22, 19, 29, 1.6, H, { line: l }); cap(45, 22, 45, 29, 1.6, H, { line: l }); });
+  } else if (S.style === 'cassidy'){
+    merged(l => { ell(32, 18, 15, 9, H, { line: l }); for (const x of [22, 27, 32, 37, 42]) ell(x, 22, 3, 3.5, H, { line: l }); });
+  } else if (S.style === 'long'){
+    merged(l => { ell(32, 18, 14.5, 8.5, H, { line: l }); cap(22, 18, 24, 26, 3.6, H, { line: l, taper: 0.5 }); cap(42, 18, 40, 26, 3.6, H, { line: l, taper: 0.5 }); cap(32, 15, 33, 22, 3, H, { line: l, taper: 0.5 }); });
+  } else if (S.style === 'prof'){
+    merged(l => { ell(32, 18, 14, 7.5, H, { line: l }); cap(20, 20, 18, 30, 3, H, { line: l, taper: 0.4 }); cap(44, 20, 46, 30, 3, H, { line: l, taper: 0.4 }); cap(26, 14, 40, 13, 3, H, { line: l }); });
+  }
+  const c = document.createElement('canvas');
+  c.width = c.height = N;
+  c.getContext('2d').putImageData(new ImageData(buf, N, N), 0, 0);
+  return c;
+}

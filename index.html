@@ -3183,7 +3183,7 @@ function onEnemyDefeated(box){
   }, 1500);
 }
 
-async function spawnEnemy(data = wildMon()){   // wildMon: divoký pokémon podle arény (battle.js)
+async function spawnEnemy(data = wildMon(), opts = {}){   // wildMon: divoký pokémon podle arény (battle.js); opts.ball = vyleze z pokéballu (trenér)
   const box = document.getElementById('enemyBox');
   (box._faintAnims || []).forEach(a => a.cancel());
   box._faintAnims = null;
@@ -3192,6 +3192,7 @@ async function spawnEnemy(data = wildMon()){   // wildMon: divoký pokémon podl
   setMonSprite(box, data);
   setState(box, 'revive');
   if (data.shiny) toast(`Objevil se shiny ${NAMES[data.id - 1]}!`, true);
+  if (opts.ball){ await ballDrop(box, opts.ball); setState(box, 'idle'); return; }   // pokémon trenéra (fx.js)
   window.spawnGlow?.(box, data.shiny ? '#ffe066' : '#bfe4ff');   // zářivý kruh (fx.js)
   await box.querySelector('.anim').animate([
     { opacity: 0, transform: 'translateY(-6px)' },

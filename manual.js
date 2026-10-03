@@ -255,8 +255,17 @@ async function takeTurn(choice){
 
 /* ---------- Otevření / zavření souboje ---------- */
 const fightReady = () => manualActive() && !fightOpen;
+// je bojující pokémon připravený? když ne, poradí co dělat
+function guardReady(){
+  const p = activeMon();
+  if (p && !p.fainted && p.hp >= 1) return true;
+  const other = party.team.map(monByUid).some(m => m && m !== p && !m.fainted && m.hp >= 1);
+  toast(other ? 'Tvůj pokémon nemůže bojovat – pošli dalšího z Týmu (X).' : 'Žádný pokémon není připravený – počkej na vyléčení nebo použij Lektvar.');
+  beep(150, 0.08, 0.03, 'square');
+  return false;
+}
 function openFight(){
-  if (!manualActive()) return;
+  if (!guardReady() || !manualActive()) return;
   syncFight();
   fightOpen = true;
   lastMsg = `Divoký ${NAMES[battle.enemy.id - 1]} (Lv ${battle.enemy.lvl}) se postavil do cesty! Co uděláš?`;
@@ -372,7 +381,7 @@ const trackArena = h => h.arena || habitatOf(h.id);
 async function startTrack(uid){
   const h = shop.hunts.find(x => x.uid === uid);
   if (!h || hunt || bossFight || battle.enemy.track) return;
-  if (!activeMon() || activeMon().fainted) return toast('Nejdřív pošli do boje zdravého pokémona (Tým).');
+  if (!guardReady()) return;
   closeReveal(); closeShop(); closePanel(); closeJournal(); closeTeam();
   await fadeTo(1);
   battle.trackCtx = { prevArena: arena, prevEnemy: battle.enemy };

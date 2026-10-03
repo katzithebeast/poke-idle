@@ -50,7 +50,7 @@ function updateBossCall(){
 async function startBoss(){
   if (bossFight || hunt || !bossAvailable()) return;
   const p = activeMon();
-  if (!p || p.fainted) return toast('Nejdřív pošli do boje zdravého pokémona (Tým).');
+  if (!guardReady()) return;
   closePanel(); closeTeam(); closeShop(); closeJournal();
   const def = BOSSES[arena], lvl = Math.min(100, ARENA_LEVELS[arena][1] + BOSS_LEVEL_UP);
   const st = monStats({ id: def.id, lvl, stars: BOSS_STARS });
@@ -62,12 +62,14 @@ async function startBoss(){
   (enemyBox._faintAnims || []).forEach(a => a.cancel());
   enemyBox._faintAnims = null;
   setMonSprite(enemyBox, { id: def.id, shiny: false });
+  enemyBox.querySelector('.anim').style.opacity = '0';   // boss vyleze z ballu až po dialogu
   setState(enemyBox, 'idle');
   bossMsg.textContent = 'Zastav ukazatel uprostřed (A, mezerník nebo ťuk)';
   bossHud.classList.add('open');
   await fadeTo(0);
   bossHud.classList.remove('open');
   await showDialog([...leaderLines(arena, 'hi'), { who: 'player', name: 'Ty', text: 'Jdeme na to!' }]);   // story.js
+  await ballDrop(enemyBox, 'ultra');
   bossHud.classList.add('open');
   toast(`${LEADERS[arena]?.name || def.title} posílá ${NAMES[def.id - 1]} (Lv ${lvl})!`, true);
   [392, 523, 659].forEach((f, i) => beep(f, 0.14, 0.05, 'square', i * 0.12));
