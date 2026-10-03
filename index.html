@@ -1590,7 +1590,7 @@ body.ds .coin-float{ zoom:var(--pz); }
 .loader-stage{ position:relative; width:100%; height:240px; }
 #loaderBall{ position:absolute; left:50%; bottom:20px; width:64px; height:64px; margin-left:-32px; image-rendering:pixelated; }
 #loaderShadow{ position:absolute; left:50%; bottom:14px; width:60px; height:10px; margin-left:-30px; background:#2a2a32; border-radius:50%; }
-.loader-ground{ position:absolute; left:0; right:0; bottom:16px; height:2px; background:#1c1c22; }
+.loader-dust{ position:absolute; left:50%; bottom:18px; width:6px; height:6px; margin-left:-26px; background:#3a3a44; }
 .loader-text{ font-size:20px; letter-spacing:.3em; animation:loadBlink 1s steps(2) infinite; }
 .loader-status{ font-size:11px; letter-spacing:.1em; color:#8a8aa0; text-transform:uppercase; }
 @keyframes loadBlink{ 50%{ opacity:.35; } }
@@ -1599,13 +1599,7 @@ body.ds .coin-float{ zoom:var(--pz); }
 body.ds #shopBody{ display:grid; grid-template-columns:repeat(3, minmax(0, 1fr)); grid-auto-rows:100%; gap:8px; overflow:hidden; touch-action:pan-y; }
 body.ds #shopBody > *{ min-width:0; overflow:hidden; }
 body.ds #shopBody > [hidden]{ display:none !important; }
-.shop-nav{ display:flex; align-items:center; justify-content:center; gap:14px; padding:0 0 6px; }
-.shop-nav[hidden]{ display:none; }
-.shop-nav button{ all:unset; cursor:pointer; font:700 14px var(--font-title); color:var(--gold); padding:0 10px; animation:snPulse 1s steps(2) infinite; }
-.shop-nav button.off{ color:var(--w-faint); animation:none; cursor:default; }
-.shop-nav .sn-n{ font:700 10px var(--font-title); color:var(--w-muted); }
-@keyframes snPulse{ 50%{ transform:translateX(var(--nx, 2px)); } }
-.shop-nav .sn-l{ --nx:-2px; }
+
 body.ds #shopBody > .item-card{ flex-direction:column; align-items:center; text-align:center; }
 body.ds #shopBody > .item-card > img{ width:36px; height:36px; }
 body.ds #shopBody > .item-card .bc-head{ flex-direction:column; align-items:center; gap:3px; }
@@ -1640,7 +1634,6 @@ body.ds .pad-slot{ display:block; }
   <div class="loader-stage">
     <i id="loaderShadow"></i>
     <canvas id="loaderBall" width="16" height="16"></canvas>
-    <i class="loader-ground"></i>
   </div>
   <div class="loader-text">LOADING</div>
   <div class="loader-status" id="loaderStatus">aktualizace…</div>
@@ -1658,29 +1651,43 @@ body.ds .pad-slot{ display:block; }
     if (Math.hypot(x + .5 - 5, y + .5 - 4) < 1.2) col = '#ffffff';
     c.fillStyle = col; c.fillRect(x, y, 1, 1);
   }
-  const shadow = document.getElementById('loaderShadow');
-  const G = 1500, BOUNCE = 0.62, SIZE = 64;
-  let x, h, vx, vh, rot, last = performance.now();
-  const reset = () => { x = -innerWidth / 2 - SIZE; h = 170; vx = 300; vh = 120; rot = 0; };
-  reset();
+  const shadow = document.getElementById('loaderShadow'), stage = cv.parentElement;
+  // ball zůstává uprostřed, pohyb dopředu naznačuje rotace a prach odlétající dozadu
+  const G = 1500, BOUNCE = 0.62, SIZE = 64, SPEED = 300;
+  let h = 170, vh = 120, rot = 0, rollT = 0, last = performance.now();
+  const dust = [];
+  const puff = () => {
+    for (let i = 0; i < 4; i++){
+      const d = document.createElement('i');
+      d.className = 'loader-dust';
+      stage.appendChild(d);
+      dust.push({ el: d, x: -10 - i * 6, y: Math.random() * 6, vx: -(SPEED * (0.6 + Math.random() * 0.5)), life: 0.5 + Math.random() * 0.3, t: 0 });
+    }
+  };
   const step = now => {
     if (!document.getElementById('loader')) return;
     const dt = Math.min(0.05, (now - last) / 1000); last = now;
     vh -= G * dt; h += vh * dt;
-    if (h <= 0){                                   // dopad: odraz se ztrátou energie, pak už jen kutálení
-      h = 0; vh = -vh * BOUNCE; vx *= 0.92;
+    if (h <= 0){
+      h = 0;
+      if (vh < -60) puff();
+      vh = -vh * BOUNCE;
       if (vh < 60) vh = 0;
     }
-    if (h === 0 && vh === 0) vx = Math.max(120, vx * (1 - 0.25 * dt));
-    x += vx * dt;
-    rot += vx * dt / (SIZE / 2);                   // valení: úhel = dráha / poloměr
-    if (x > innerWidth / 2 + SIZE) reset();
-    const px = Math.round(x / 4) * 4, ph = Math.round(h / 4) * 4;          // po pixelech (retro)
-    const deg = Math.round(rot * 180 / Math.PI / 22.5) * 22.5;
-    cv.style.transform = `translate(${px}px, ${-ph}px) rotate(${deg}deg)`;
+    if (h === 0 && vh === 0 && (rollT += dt) > 0.9){ rollT = 0; h = 0.1; vh = 760; }   // znovu vyskočí
+    rot += SPEED * dt / (SIZE / 2);
+    const ph = Math.round(h / 4) * 4, deg = Math.round(rot * 180 / Math.PI / 22.5) * 22.5;
+    cv.style.transform = `translateY(${-ph}px) rotate(${deg}deg)`;
     const k = Math.max(0.25, 1 - h / 260);
-    shadow.style.transform = `translateX(${px}px) scaleX(${k.toFixed(2)})`;
-    shadow.style.opacity = (0.15 + 0.4 * k).toFixed(2);
+    shadow.style.transform = `scaleX(${k.toFixed(2)})`;
+    shadow.style.opacity = (0.1 + 0.35 * k).toFixed(2);
+    for (let i = dust.length - 1; i >= 0; i--){
+      const d = dust[i];
+      d.t += dt; d.x += d.vx * dt; d.y += 20 * dt;
+      d.el.style.transform = `translate(${Math.round(d.x / 4) * 4}px, ${-Math.round(d.y)}px)`;
+      d.el.style.opacity = Math.max(0, 1 - d.t / d.life).toFixed(2);
+      if (d.t > d.life){ d.el.remove(); dust.splice(i, 1); }
+    }
     requestAnimationFrame(step);
   };
   requestAnimationFrame(step);

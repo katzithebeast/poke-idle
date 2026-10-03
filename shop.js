@@ -282,10 +282,11 @@ function applyShopPage(){
   cards.forEach((c, i) => { c.hidden = ds && Math.floor(i / 3) !== shopPage; });
   shopBody.querySelectorAll('.pad-slot').forEach(p => p.remove());
   if (ds && pages > 1) for (let k = cards.slice(shopPage * 3, shopPage * 3 + 3).length; k < 3; k++) shopBody.insertAdjacentHTML('beforeend', '<div class="pad-slot"></div>');
-  shopNav.hidden = !ds || pages < 2;
-  shopNav.querySelector('.sn-l').classList.toggle('off', shopPage === 0);
-  shopNav.querySelector('.sn-r').classList.toggle('off', shopPage >= pages - 1);
-  shopNav.querySelector('.sn-n').textContent = `${shopPage + 1} / ${pages}`;
+  const navL = shopNav[0], navR = shopNav[1];
+  navL.hidden = !ds || shopPage === 0;
+  navR.hidden = !ds || shopPage >= pages - 1;
+  // šipky po stranách uprostřed výšky karet
+  for (const n of shopNav){ n.style.top = shopBody.offsetTop + 'px'; n.style.height = shopBody.offsetHeight + 'px'; }
 }
 function shopTurnPage(d){
   const pages = shopPages();
@@ -295,15 +296,41 @@ function shopTurnPage(d){
   beep(900, 0.03, 0.02);
   return true;
 }
-const shopNav = document.createElement('div');
-shopNav.className = 'shop-nav';
-shopNav.hidden = true;
-shopNav.innerHTML = '<button class="sn-l" aria-label="Předchozí">◀</button><span class="sn-n"></span><button class="sn-r" aria-label="Další">▶</button>';
-shopBody.after(shopNav);
-shopNav.addEventListener('click', (e) => {
-  if (e.target.closest('.sn-l')) shopTurnPage(-1);
-  if (e.target.closest('.sn-r')) shopTurnPage(1);
+// malé šedé pixelové šipky po stranách (CSS je tady, ať se styl a logika nerozejdou mezi verzemi)
+const arrowImg = (() => {
+  const c = document.createElement('canvas'); c.width = 6; c.height = 11;
+  const g = c.getContext('2d');
+  for (let y = 0; y < 11; y++){
+    const w = 5 - Math.abs(y - 5);                  // trojúhelník ▶
+    for (let x = 0; x <= w; x++){ g.fillStyle = x === w || y === 0 || y === 10 ? '#3c3c46' : '#9a9aa6'; g.fillRect(x, y, 1, 1); }
+  }
+  return c.toDataURL();
+})();
+document.head.insertAdjacentHTML('beforeend', `<style>
+.shop-arrow{ all:unset; cursor:pointer; position:absolute; z-index:3; width:16px; display:flex; align-items:center; justify-content:center; -webkit-tap-highlight-color:transparent; }
+.shop-arrow[hidden]{ display:none; }
+.shop-arrow i{ width:9px; height:17px; background:url(${arrowImg}) center / 100% 100% no-repeat; image-rendering:pixelated; animation:arrowNudge 1.2s steps(2) infinite; }
+.shop-arrow.l{ left:0; } .shop-arrow.l i{ transform:scaleX(-1); animation-name:arrowNudgeL; }
+.shop-arrow.r{ right:0; }
+@keyframes arrowNudge{ 50%{ translate:2px 0; } }
+@keyframes arrowNudgeL{ 50%{ translate:-2px 0; } }
+body.ds #shopBody{ padding-left:16px !important; padding-right:16px !important; }
+body.ds .ball-card .ball-show{ flex:none; height:50px !important; }
+body.ds .ball-card .ball-show img{ width:34px !important; height:34px !important; margin-top:12px !important; }
+body.ds .ball-card .bc-body{ gap:4px; padding:6px 7px 7px; }
+body.ds .ball-card .odds{ gap:0; }
+</style>`);
+const shopNav = ['l', 'r'].map(side => {
+  const b = document.createElement('button');
+  b.className = 'shop-arrow ' + side;
+  b.hidden = true;
+  b.setAttribute('aria-label', side === 'l' ? 'Předchozí' : 'Další');
+  b.innerHTML = '<i></i>';
+  b.addEventListener('click', () => shopTurnPage(side === 'l' ? -1 : 1));
+  shopBody.parentElement.appendChild(b);
+  return b;
 });
+shopBody.parentElement.style.position = 'relative';
 let swipeX = null;
 shopBody.addEventListener('pointerdown', (e) => { swipeX = e.clientX; });
 shopBody.addEventListener('pointerup', (e) => {
