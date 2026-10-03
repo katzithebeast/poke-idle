@@ -316,6 +316,11 @@ document.head.insertAdjacentHTML('beforeend', `<style>
 @keyframes arrowNudgeL{ 50%{ translate:-2px 0; } }
 body.ds #shopBody{ padding-left:16px !important; padding-right:16px !important; }
 body.ds .ball-card .ball-show{ flex:none; height:50px !important; }
+body.theme-dark .hunt-hud{ --bg:var(--w-bg); --hi:transparent; --lo:transparent; background:var(--w-bg); color:var(--w-fg); box-shadow:none; filter:none; }
+body.theme-dark .hunt-hud .hunt-sub{ color:var(--w-muted); }
+body.theme-dark .hunt-hud .pbtn{ --bg:var(--w-card); --hi:transparent; --lo:transparent; --fg:#fff; box-shadow:none; }
+body.theme-dark .hunt-hud .pbtn.red{ --bg:var(--gold); --fg:var(--ink); }
+body.theme-dark .hunt-hud .rtag{ box-shadow:none; }
 body.ds .ball-card .ball-show img{ width:34px !important; height:34px !important; margin-top:12px !important; }
 body.ds .ball-card .bc-body{ gap:4px; padding:6px 7px 7px; }
 body.ds .ball-card .odds{ gap:0; }

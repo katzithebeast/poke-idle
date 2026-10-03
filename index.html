@@ -1670,11 +1670,10 @@ body.ds .pad-slot{ display:block; }
     vh -= G * dt; h += vh * dt;
     if (h <= 0){
       h = 0;
-      if (vh < -60) puff();
+      if (vh < -120) puff();
       vh = -vh * BOUNCE;
       if (vh < 60) vh = 0;
     }
-    if (h === 0 && vh === 0 && (rollT += dt) > 0.9){ rollT = 0; h = 0.1; vh = 760; }   // znovu vyskočí
     rot += SPEED * dt / (SIZE / 2);
     const ph = Math.round(h / 4) * 4, deg = Math.round(rot * 180 / Math.PI / 22.5) * 22.5;
     cv.style.transform = `translateY(${-ph}px) rotate(${deg}deg)`;

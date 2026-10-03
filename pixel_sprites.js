@@ -96,37 +96,37 @@ function pxCoinCanvas(size = 10){
   return c;
 }
 
-/* ---------- Trenér (celá postava zezadu, stojí na plošince místo hráčova pokémona) ----------
-   Kluk v černé mikině s nataženou kapucí, pod ní červená kšiltovka (kšilt kouká
-   dopředu), světle hnědé vlasy, džíny a červené tenisky; zezadu na mikině vybledlý
-   potisk pokéballu. Kreslí se 1:1 v pixelech arény (stejná mřížka jako pozadí).
+/* ---------- Trenér (zezadu, chibi proporce jako v Pokémon Black/White) ----------
+   Červená kšiltovka (zapínání vzadu, kšilt vykukuje dopředu), světle hnědé rozcuchané
+   vlasy, černá mikina se staženou kapucí, žlutý batoh, džíny, červené tenisky.
+   Každý materiál má 3 tóny + vlastní tmavou linku (selektivní obrys místo černé).
    Snímky: 2× idle (dýchání), 2× nápřah, hod, dohoz. Ball v ruce je typ, kterým se loví. */
-const TRAINER_W = 56, TRAINER_H = 96;
+const TRAINER_W = 56, TRAINER_H = 84;
 const TRAINER_PAL = {
-  out: '#08080c',
-  hood: ['#50506a', '#282834', '#15151c'],
-  rim: ['#70708a', '#4a4a60', '#30303e'],
-  print: '#3e3e52',
-  skin: ['#ffe2cc', '#f2c4a0', '#cc9474'],
-  hair: ['#f6dcaa', '#dcae74', '#a87c4a'],
-  cap: ['#ff7464', '#d8322e', '#8e1c26'],
-  jeans: ['#7080b0', '#435282', '#283258'],
-  shoe: ['#ff7a6a', '#d23a34', '#8a1e26'],
-  sole: ['#ffffff', '#e4e4ee', '#a8a8bc'],
+  hoodie: ['#5a5a70', '#30303e', '#1e1e28', '#0e0e14'],
+  hood:   ['#7a7a90', '#4c4c5c', '#30303c', '#14141a'],
+  pack:   ['#ffd877', '#e9a83a', '#a8681a', '#4e2e08'],
+  strap:  ['#b07a2a', '#7a4e14', '#4e2e08', '#2e1a04'],
+  hair:   ['#f8dcaa', '#dcae72', '#a8783e', '#5e3c18'],
+  skin:   ['#ffe4cf', '#f2c4a0', '#cc9474', '#7a4a32'],
+  cap:    ['#ff7a68', '#dc3432', '#962030', '#4e0c16'],
+  jeans:  ['#7a8cc4', '#4a5c96', '#2e3a6a', '#141c38'],
+  shoe:   ['#ff7a6a', '#d63a34', '#8e1e26', '#4a0c12'],
+  sole:   ['#ffffff', '#e2e2ec', '#a8a8bc', '#5a5a6a'],
 };
-// pózy pravé (házecí) ruky: loket, dlaň, ball (null = už hozený); lean = náklon hlavy, up = nádech (horní polovina těla o pixel dolů)
+// pózy pravé (házecí) ruky: loket, dlaň, ball (null = už hozený); up = nádech (horní polovina o pixel dolů)
 const TRAINER_POSES = {
-  idle:   { elbow: [43, 47], hand: [44, 56], ball: [47, 55], lean: 0,  up: 0 },
-  idle2:  { elbow: [43, 47], hand: [44, 56], ball: [47, 55], lean: 0,  up: 1 },
-  wind1:  { elbow: [47, 30], hand: [45, 21], ball: [45, 17], lean: 0,  up: 0 },
-  wind2:  { elbow: [46, 28], hand: [41, 19], ball: [40, 15], lean: -1, up: 0 },
-  throw:  { elbow: [48, 31], hand: [52, 23], ball: null,     lean: 1,  up: 0 },
-  follow: { elbow: [48, 41], hand: [52, 45], ball: null,     lean: 1,  up: 1 },
+  idle:   { elbow: [41, 57], hand: [41, 63], ball: [43, 62], up: 0 },
+  idle2:  { elbow: [41, 58], hand: [41, 64], ball: [43, 63], up: 1 },
+  wind1:  { elbow: [45, 45], hand: [43, 36], ball: [43, 32], up: 0 },
+  wind2:  { elbow: [44, 43], hand: [39, 34], ball: [38, 30], up: 0 },
+  throw:  { elbow: [46, 45], hand: [51, 38], ball: null, up: 0 },
+  follow: { elbow: [45, 53], hand: [50, 57], ball: null, up: 1 },
 };
-const TRAINER_RELEASE = [53, 21];   // kde ball opouští ruku (v pixelech spritu)
+const TRAINER_RELEASE = [52, 36];   // kde ball opouští ruku (v pixelech spritu)
 
 function pxTrainerFrame(pose, ballType){
-  const W = TRAINER_W, H = TRAINER_H, P = TRAINER_PAL, OUT = pxHex(P.out);
+  const W = TRAINER_W, H = TRAINER_H, P = TRAINER_PAL;
   const buf = new Uint8ClampedArray(W * H * 4);
   const put = (x, y, col) => {
     x = Math.round(x); y = Math.round(y);
@@ -134,19 +134,19 @@ function pxTrainerFrame(pose, ballType){
     const [r, g, b, a] = pxHex(col), i = (y * W + x) * 4;
     buf[i] = r; buf[i + 1] = g; buf[i + 2] = b; buf[i + 3] = a;
   };
-  const isFill = (x, y) => { const i = (y * W + x) * 4; return buf[i + 3] && !(buf[i] === OUT[0] && buf[i + 1] === OUT[1] && buf[i + 2] === OUT[2]); };
-  let dy = 0;   // posun aktuálně kreslené části (horní polovina těla se při nádechu posune)
-  // elipsa s obrysem a stínováním podle normály
-  const ellipse = (cx, cy, rx, ry, pal, outline = true) => {
+  let dy = 0;
+  const shade = (pal, nx, ny) => pxShade(pal, nx, ny, 0.7, 0.18);
+  // elipsa: výplň se stínováním + linka v tmavém tónu materiálu; clip(y) omezí kreslení
+  const ellipse = (cx, cy, rx, ry, pal, o = {}) => {
     cy += dy;
     for (let y = Math.floor(cy - ry - 1); y <= cy + ry + 1; y++) for (let x = Math.floor(cx - rx - 1); x <= cx + rx + 1; x++){
+      if (o.clip && !o.clip(x, y - dy)) continue;
       const nx = (x + 0.5 - cx) / rx, ny = (y + 0.5 - cy) / ry;
-      if (nx * nx + ny * ny <= 1) put(x, y, pxShade(pal, nx, ny));
-      else if (outline && ((x + 0.5 - cx) / (rx + 1)) ** 2 + ((y + 0.5 - cy) / (ry + 1)) ** 2 <= 1) put(x, y, P.out);
+      if (nx * nx + ny * ny <= 1) put(x, y, shade(pal, nx, ny));
+      else if (o.line !== false && ((x + 0.5 - cx) / (rx + 1)) ** 2 + ((y + 0.5 - cy) / (ry + 1)) ** 2 <= 1) put(x, y, pal[3]);
     }
   };
-  // "kapsle" (zaoblená úsečka) – ruce, nohy, kšilt, prameny vlasů
-  const capsule = (x1, y1, x2, y2, r, pal, outline = true) => {
+  const capsule = (x1, y1, x2, y2, r, pal, o = {}) => {
     y1 += dy; y2 += dy;
     const vx = x2 - x1, vy = y2 - y1, L2 = vx * vx + vy * vy || 1;
     for (let y = Math.floor(Math.min(y1, y2) - r - 2); y <= Math.max(y1, y2) + r + 2; y++)
@@ -154,67 +154,60 @@ function pxTrainerFrame(pose, ballType){
         const px = x + 0.5, py = y + 0.5;
         const t = Math.max(0, Math.min(1, ((px - x1) * vx + (py - y1) * vy) / L2));
         const ex = px - (x1 + vx * t), ey = py - (y1 + vy * t), d = Math.hypot(ex, ey);
-        if (d <= r) put(x, y, pxShade(pal, ex / r, ey / r));
-        else if (outline && d <= r + 1) put(x, y, P.out);
+        if (d <= r) put(x, y, shade(pal, ex / r, ey / r));
+        else if (o.line !== false && d <= r + 1) put(x, y, pal[3]);
       }
   };
-  // obdélník (rovně visící látka) – stín jen podle vodorovné polohy
-  const box = (x0, y0, x1, y1, pal, outline = true) => {
+  const box = (x0, y0, x1, y1, pal, o = {}) => {
     y0 += dy; y1 += dy;
     const cx = (x0 + x1) / 2, hw = (x1 - x0) / 2 + 0.5;
     for (let y = y0 - 1; y <= y1 + 1; y++) for (let x = x0 - 1; x <= x1 + 1; x++){
-      if (x >= x0 && x <= x1 && y >= y0 && y <= y1) put(x, y, pxShade(pal, (x - cx) / hw * 0.95, -0.15));
-      else if (outline) put(x, y, P.out);
+      const inside = x >= x0 && x <= x1 && y >= y0 && y <= y1;
+      if (inside) put(x, y, o.flat || shade(pal, (x - cx) / hw * 0.9, o.ny ?? -0.1));
+      else if (o.line !== false) put(x, y, pal[3]);
     }
   };
-  // víc tvarů jako jedna silueta: nejdřív všechno s obrysem, pak znovu bez něj
-  const merged = draw => { draw(true); draw(false); };
+  const merged = draw => { draw(true); draw(false); };   // víc tvarů = jedna silueta (linka jen kolem)
 
-  // nohy (džíny) a tenisky – ty se při dýchání nehýbou
-  merged(o => {
-    capsule(21, 60, 20, 85, 4.4, P.jeans, o);
-    capsule(33, 60, 34, 85, 4.4, P.jeans, o);
-  });
-  ellipse(19, 89, 5, 3, P.shoe);
-  ellipse(35, 89, 5, 3, P.shoe);
-  capsule(16, 91, 22, 91, 0.9, P.sole, false);
-  capsule(32, 91, 38, 91, 0.9, P.sole, false);
+  // nohy a tenisky
+  merged(l => { capsule(21, 66, 21, 76, 3.6, P.jeans, { line: l }); capsule(33, 66, 33, 76, 3.6, P.jeans, { line: l }); });
+  ellipse(21, 79, 4.6, 2.8, P.shoe); ellipse(33, 79, 4.6, 2.8, P.shoe);
+  for (const sx of [21, 33]) for (let x = sx - 4; x <= sx + 4; x++) put(x, 81, x === sx - 4 || x === sx + 4 ? P.sole[3] : P.sole[1]);
 
   dy = pose.up;
-  const lean = pose.lean, hx = 27 + lean;
-  // trup a ramena v černé mikině
-  merged(o => {
-    ellipse(27, 38, 16, 8, P.hood, o);
-    box(14, 38, 40, 59, P.hood, o);
+  // levá ruka (u těla) a mikina
+  capsule(15, 50, 13, 61, 3.3, P.hoodie);
+  ellipse(13, 63.5, 2.3, 2.2, P.skin);
+  merged(l => { ellipse(27, 55, 13, 10, P.hoodie, { line: l }); box(15, 56, 39, 66, P.hoodie, { line: l }); });
+  for (let x = 15; x <= 39; x++) put(x, 65 + dy, P.hoodie[0]);                 // lem
+  for (let x = 15; x <= 39; x++) put(x, 66 + dy, P.hoodie[2]);
+  // stažená kapuce za krkem
+  ellipse(27, 45.5, 9, 3.6, P.hood);
+  for (let x = 21; x <= 33; x++) put(x, 45 + dy, P.hood[2]);                  // záhyb
+  // batoh: popruhy přes ramena, tělo, kapsa, klopa
+  capsule(18.5, 46, 18, 52, 1.3, P.strap); capsule(35.5, 46, 36, 52, 1.3, P.strap);
+  merged(l => { ellipse(27, 53, 9, 4, P.pack, { line: l }); box(18, 53, 36, 65, P.pack, { line: l }); });
+  for (let x = 19; x <= 35; x++) put(x, 56 + dy, P.pack[2]);                   // okraj klopy
+  for (let x = 20; x <= 34; x++) put(x, 55 + dy, P.pack[0]);
+  box(21, 59, 33, 64, P.pack, { flat: P.pack[1] });                             // kapsa
+  for (let x = 21; x <= 33; x++) put(x, 59 + dy, P.pack[0]);
+  put(27, 57 + dy, P.strap[0]); put(27, 58 + dy, P.strap[1]);                   // přezka
+  // hlava: vlasy, ucho, kšiltovka
+  ellipse(39.5, 31, 2, 3, P.skin);
+  merged(l => {
+    ellipse(27, 30, 12, 9.5, P.hair, { line: l });
+    for (const [x, len, tilt] of [[19, 2, -1], [24, 4, -0.5], [30, 4, 0.8], [35, 2, 1]]) capsule(x, 36, x + tilt, 36 + len, 1.8, P.hair, { line: l });   // krátké rozcuchané prameny
+    capsule(15.5, 29, 14.5, 33, 1.6, P.hair, { line: l });                                                 // pramen u ucha
   });
-  // žebrovaný lem mikiny
-  for (let y = 57; y <= 59; y++) for (let x = 0; x < W; x++)
-    if (isFill(x, y + dy)) put(x, y + dy, pxShade(P.rim, (x - 27) / 15, 0.2));
-  // potisk pokéballu na zádech (vybledlý)
-  for (let y = -5; y <= 5; y++) for (let x = -5; x <= 5; x++){
-    const d = Math.hypot(x, y);
-    if ((d > 3.8 && d <= 4.8) || (Math.abs(y) < 0.6 && d < 4) || (d <= 1.5 && d > 0.6)) put(26 + x, 44 + y + dy, P.print);
-  }
-  // levá ruka visí podél těla
-  capsule(14, 36, 11, 55, 3.8, P.hood);
-  ellipse(11, 58, 2.4, 2.4, P.skin);
-  // kapuce přes hlavu
-  ellipse(27 + lean * 0.5, 30, 10, 4, P.hood, false);
-  ellipse(hx, 17, 11, 12, P.hood);
-  for (let y = 7; y < 27; y++) put(hx - 1 + (y > 20 ? 1 : 0), y + dy, P.hood[2]);   // šev
-  // tvář a světle hnědé vlasy vykukují vpravo (hlava je otočená k soupeři)
-  ellipse(hx + 11.5, 20, 2, 3.2, P.skin);
-  merged(o => {
-    ellipse(hx + 11, 15.5, 3, 3, P.hair, o);
-    capsule(hx + 12, 14, hx + 15.5, 17, 1.2, P.hair, o);
-    capsule(hx + 11, 17, hx + 13.5, 21.5, 1.2, P.hair, o);
-    capsule(hx + 9.5, 18, hx + 10.5, 24, 1.1, P.hair, o);
-  });
-  capsule(hx + 8.5, 7, hx + 9.5, 25, 1.4, P.rim);           // lem kapuce
-  capsule(hx + 9, 11.5, hx + 15.5, 10.5, 1.3, P.cap);       // kšilt kšiltovky
+  ellipse(27, 23, 13, 9.5, P.cap, { clip: (x, y) => y <= 26 });
+  for (let x = 14; x <= 40; x++) put(x, 27 + dy, P.cap[3]);                     // spodní hrana čepice
+  ellipse(27, 25, 4, 2, P.hair, { line: false, clip: (x, y) => y <= 26 });      // otvor vzadu, prosvítají vlasy
+  for (let x = 23; x <= 31; x++) put(x, 24 + dy, P.cap[3]);                     // zapínání
+  put(27, 14 + dy, P.cap[0]); put(26, 14 + dy, P.cap[1]); put(28, 14 + dy, P.cap[1]);   // knoflík nahoře
+  capsule(37, 26, 44, 25, 1.5, P.cap);                                          // kšilt dopředu vpravo
 
   // pravá ruka podle pózy + ball v dlani
-  const { elbow, hand, ball } = pose;
+  const { elbow, hand, ball } = pose, S = [38, 50];
   const drawBall = () => {
     if (!ball) return;
     const n = 7, d = pxBallCanvas(ballType, n).getContext('2d').getImageData(0, 0, n, n).data;
@@ -223,13 +216,12 @@ function pxTrainerFrame(pose, ballType){
       if (d[i + 3]) put(ball[0] - 3 + x, ball[1] - 3 + y + dy, '#' + [d[i], d[i + 1], d[i + 2]].map(c => c.toString(16).padStart(2, '0')).join(''));
     }
   };
-  const ballBehind = ball && ball[1] < hand[1];   // ve vzpaženém nápřahu je ball nad dlaní
-  capsule(40, 37, elbow[0], elbow[1], 3.8, P.hood);
-  capsule(elbow[0], elbow[1], hand[0], hand[1], 3.3, P.hood);
+  const ballBehind = ball && ball[1] < hand[1];
+  capsule(S[0], S[1], elbow[0], elbow[1], 3.4, P.hoodie);
+  capsule(elbow[0], elbow[1], hand[0], hand[1], 3, P.hoodie);
   if (ballBehind) drawBall();
   ellipse(hand[0], hand[1], 2.4, 2.3, P.skin);
   if (!ballBehind) drawBall();
-
   return buf;
 }
 
