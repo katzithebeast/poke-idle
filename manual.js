@@ -45,6 +45,8 @@ const STATUS = {
 let fightKey = null;
 const P = { side: 'p', ep: 0, st: {} }, E = { side: 'e', ep: 0, st: {} };
 let turnBusy = false, nextEnemyMove = null;
+// ruční režim: soupeř čeká, souboj se otevře až tlačítkem "Bojovat"; po výhře/prohře zpět do menu
+let fightOpen = false;
 const manualPanel = document.getElementById('manualPanel');
 
 const manualActive = () => !autoOn && !hunt && !bossFight && !!activeMon() && !activeMon().fainted && activeMon().hp >= 1 && battle.enemy?.hp >= 1;
@@ -180,8 +182,8 @@ async function takeTurn(choice){
   }
   if (alive(P) && alive(E)) await endOfTurn();
   saveParty(); saveBattle();
-  if (!alive(E)){ E.mon.hp = 0; say(`${nameOf(E)} byl poražen!`); await wait(300); faint(enemyBox); }    // → onEnemyDefeated → odměna s bonusem
-  else if (!alive(P)){ P.mon.hp = 0; say(`${nameOf(P)} omdlel!`); playerFainted(); }
+  if (!alive(E)){ E.mon.hp = 0; say(`${nameOf(E)} byl poražen!`); await wait(300); faint(enemyBox); await wait(900); closeFight(); }    // → onEnemyDefeated → odměna s bonusem
+  else if (!alive(P)){ P.mon.hp = 0; say(`${nameOf(P)} omdlel!`); playerFainted(); await wait(900); closeFight(); }
   else {
     gainEp(E, 1);
     if (P.st.foresight){ nextEnemyMove = enemyChoose(); say(`Předtucha: soupeř chystá ${moveLabel(nextEnemyMove)}.`); }
@@ -191,40 +193,82 @@ async function takeTurn(choice){
   renderManual();
 }
 
-/* ---------- Panel s akcemi (DS: spodní displej, jinak dole uprostřed) ---------- */
+/* ---------- Otevření / zavření souboje ---------- */
+const fightReady = () => manualActive() && !fightOpen;
+function openFight(){
+  if (!manualActive()) return;
+  syncFight();
+  fightOpen = true;
+  lastMsg = `Divoký ${NAMES[battle.enemy.id - 1]} (Lv ${battle.enemy.lvl}) se postavil do cesty! Co uděláš?`;
+  renderManual();
+}
+function closeFight(){ fightOpen = false; renderManual(); }
+function fleeFight(){
+  if (turnBusy) return;
+  toast(`Utekl jsi před ${NAMES[battle.enemy.id - 1]}.`);
+  fightOpen = false;
+  spawnEnemy();
+  renderManual();
+}
+
+/* ---------- Panel s akcemi: pixelová tlačítka jako na konzoli (X nahoře, Y vlevo, A vpravo, B dole) ---------- */
 let lastMsg = 'Co uděláš?';
 function say(t){ lastMsg = t; const m = manualPanel.querySelector('.mp-msg'); if (m) m.textContent = t; }
 const stTags = X => Object.keys(X.st).filter(k => STATUS[k]).map(k =>
   `<span class="mp-st ${STATUS[k].bad ? 'bad' : 'good'}">${STATUS[k].name}${k === 'poison' && X.st.poisonStack > 1 ? ' ×' + X.st.poisonStack : ''}</span>`).join('');
+// kulaté pixelové tlačítko (tmavé jako na kabátku), písmeno se kreslí přes něj
+const BTN_IMG = (() => {
+  const c = document.createElement('canvas'), n = 22, r = n / 2;
+  c.width = c.height = n;
+  const g = c.getContext('2d');
+  for (let y = 0; y < n; y++) for (let x = 0; x < n; x++){
+    const dx = x + .5 - r, dy = y + .5 - r, d = Math.hypot(dx, dy);
+    if (d > r - .1) continue;
+    g.fillStyle = d > r - 1.2 ? '#050507' : d > r - 2.2 ? (dy < 0 ? '#5a5a66' : '#2a2a30') : pxShade(['#4a4a54', '#26262c', '#18181c'], dx / r, dy / r, 0.75, 0.15);
+    g.fillRect(x, y, 1, 1);
+  }
+  return c.toDataURL();
+})();
 function renderManual(){
-  const on = manualActive() || (turnBusy && !autoOn);
+  const on = fightOpen && (manualActive() || turnBusy) && !autoOn;
+  if (fightOpen && !on && !turnBusy) fightOpen = false;
   document.body.classList.toggle('manual', on);
-  if (!on) return;
+  document.body.classList.toggle('manual-wait', !on && fightReady());
+  if (!on){ manualPanel.innerHTML = fightReady() ? `<button class="mp-start" data-mp="open">⚔ Bojovat: ${NAMES[battle.enemy.id - 1]} Lv ${battle.enemy.lvl}</button>` : ''; return; }
   syncFight();
   const sp = specialsOf(P), t = typesOf(P);
-  const btn = (key, label, sub, cls, ok, title) =>
-    `<button class="mp-btn ${cls}" data-mp="${key}" ${ok && !turnBusy ? '' : 'disabled'} title="${title || ''}"><b>${label}</b><small>${sub}</small><i>${key === 'attack' ? 'A' : key === 'guard' ? 'B' : key === 'special1' ? 'X' : 'Y'}</i></button>`;
-  const s2 = sp[1] ? btn('special2', sp[1].name, `${sp[1].cost} EP · ${t[1]}`, 'sp', P.ep >= sp[1].cost, sp[1].desc)
-    : btn('special2', t[1] ? 'Zamčeno' : '—', t[1] ? `${SPECIALS[t[1]].name} od Lv ${SPECIAL2_LVL}` : 'jen jeden typ', 'sp off', false);
+  const btn = (key, letter, label, sub, ok, title) =>
+    `<button class="mp-key k-${letter.toLowerCase()}" data-mp="${key}" ${ok && !turnBusy ? '' : 'disabled'} title="${title || ''}">
+      <span class="mp-ball" style="background-image:url(${BTN_IMG})">${letter}</span>
+      <span class="mp-lbl"><b>${label}</b><small>${sub}</small></span></button>`;
+  const s1 = btn('special1', 'X', sp[0].name, `${sp[0].cost} EP`, P.ep >= sp[0].cost, sp[0].desc);
+  const s2 = sp[1] ? btn('special2', 'Y', sp[1].name, `${sp[1].cost} EP`, P.ep >= sp[1].cost, sp[1].desc)
+    : btn('special2', 'Y', t[1] ? SPECIALS[t[1]].name : '—', t[1] ? `od Lv ${SPECIAL2_LVL}` : 'jen 1 typ', false);
   manualPanel.innerHTML = `
     <div class="mp-msg">${lastMsg}</div>
     <div class="mp-row"><span class="mp-who">${NAMES[P.mon.id - 1]}</span>
-      <span class="mp-ep">${Array.from({ length: EP_MAX }, (_, i) => `<i class="${i < P.ep ? 'on' : ''}"></i>`).join('')}</span><span class="mp-epn">${P.ep} EP</span></div>
-    <div class="mp-row mp-sts">${stTags(P) || '<span class="mp-none">bez stavů</span>'}<span class="mp-vs">soupeř:</span>${stTags(E) || '<span class="mp-none">—</span>'}</div>
-    <div class="mp-grid">
-      ${btn('attack', 'Útok', '+1 EP', 'atk', true)}
-      ${btn('special1', sp[0].name, `${sp[0].cost} EP · ${t[0]}`, 'sp', P.ep >= sp[0].cost, sp[0].desc)}
-      ${s2}
-      ${btn('guard', 'Krytí', '−60 % · +2 EP', 'grd', true)}
+      <span class="mp-ep">${Array.from({ length: EP_MAX }, (_, i) => `<i class="${i < P.ep ? 'on' : ''}"></i>`).join('')}</span><span class="mp-epn">${P.ep} EP</span>
+      <span class="mp-sts">${stTags(P)}${Object.keys(E.st).some(k => STATUS[k]) ? `<span class="mp-vs">soupeř</span>${stTags(E)}` : ''}</span></div>
+    <div class="mp-pad">
+      <button class="mp-side l" data-mp="flee" ${turnBusy ? 'disabled' : ''}>Utéct</button>
+      <button class="mp-side r" data-mp="menu" ${turnBusy ? 'disabled' : ''}>Menu<small>START</small></button>
+      ${s1}${s2}
+      ${btn('attack', 'A', 'Útok', '+1 EP', true)}
+      ${btn('guard', 'B', 'Krytí', '−60 % · +2 EP', true)}
     </div>`;
 }
 manualPanel.addEventListener('click', (e) => {
   const b = e.target.closest('[data-mp]');
-  if (b && !b.disabled) takeTurn(b.dataset.mp);
+  if (!b || b.disabled) return;
+  const k = b.dataset.mp;
+  if (k === 'open') openFight();
+  else if (k === 'menu') closeFight();
+  else if (k === 'flee') fleeFight();
+  else takeTurn(k);
 });
 // klávesnice (PC): A útok, X/Y speciály, B krytí – jen když není otevřené okno
 document.addEventListener('keydown', (e) => {
-  if (!manualActive() || e.target.matches('input') || document.querySelector('.dm.open, .journal.open, .pop.open')) return;
+  if (!fightOpen || !manualActive() || e.target.matches('input') || document.querySelector('.dm.open, .journal.open, .pop.open')) return;
   const k = { a: 'attack', x: 'special1', y: 'special2', b: 'guard' }[e.key.toLowerCase()];
   if (k){ e.preventDefault(); takeTurn(k); }
 });

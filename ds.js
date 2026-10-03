@@ -73,6 +73,7 @@ dsPanel.innerHTML = `
     <div class="dsp-vs" id="dspEnemy"></div>
   </div>
   <button class="dsp-boss" id="dspBoss" hidden></button>
+  <button class="dsp-boss dsp-fight" id="dspFight" hidden></button>
   <div class="dsp-tiles">
     <button class="dsp-tile" data-act="team"><span>Tým</span><small>X</small></button>
     <button class="dsp-tile" data-act="dex"><span>Deník</span></button>
@@ -145,6 +146,9 @@ function dsRender(){
   const boss = !bossFight && !hunt && bossAvailable() && BOSSES[arena];
   $('dspBoss').hidden = !boss;
   if (boss) $('dspBoss').innerHTML = `<b>${boss.title}</b> ${NAMES[boss.id - 1]} tě vyzývá · A`;
+  const fr = fightReady();
+  $('dspFight').hidden = !fr;
+  if (fr) $('dspFight').innerHTML = `<b>⚔ Bojovat:</b> divoký ${NAMES[battle.enemy.id - 1]} Lv ${battle.enemy.lvl} · A`;
   $('dspAuto').textContent = autoOn ? 'Boj: auto' : 'Boj: ruční';
   // bezely: nahoře kde jsi, dole nápověda ovládání
   dsTopBar.textContent = bossFight ? `Pán arény · ${a.name}` : hunt ? `Lov · ${a.name}` : `${a.name} · Lv ${lv.join('–')}`;
@@ -162,13 +166,14 @@ function hintFor(L){
   return `${K('✚')} ${K('A')} ok ${K('X')} tým ${K('Y')} obchod ${K('START')} menu ${K('SELECT')} auto`;
 }
 dsPanel.addEventListener('click', (e) => {
-  const t = e.target.closest('[data-act], #dspBoss');
+  const t = e.target.closest('[data-act], #dspBoss, #dspFight');
   if (!t) return;
   if (t.id === 'dspBoss') return startBoss();
+  if (t.id === 'dspFight') return openFight();
   ({
     team: openTeam, dex: openJournal, shop: () => openShop(),
     arena: () => arenaBtn.click(), settings: () => document.getElementById('settingsBtn').click(),
-    auto: () => { autoBtn.click(); toast(autoOn ? 'Auto boj (idle)' : 'Ruční tahový boj – vyber akci'); },
+    auto: () => { autoBtn.click(); toast(autoOn ? 'Auto boj (idle)' : 'Ruční boj – soupeř čeká, zvol Bojovat'); },
   })[t.dataset.act]?.();
 });
 
@@ -201,7 +206,7 @@ function ensureFocus(){
   const list = focusables(L);
   if (L !== focusLayer || !focused || !list.includes(focused)){
     focusLayer = L;
-    setFocus(list.find(el => el.matches('.primary, #throwBtn, #bossAttack, .mp-btn.atk, .dex-card, .dm-tab.active')) || list[0] || null);
+    setFocus(list.find(el => el.matches('.primary, #throwBtn, #bossAttack, .k-a, #dspFight:not([hidden]), .dex-card, .dm-tab.active')) || list[0] || null);
   }
   return list;
 }
@@ -258,6 +263,7 @@ function moveFocus(dir){
 function pressA(){
   const L = topLayer();
   if (L === dsPanel && !$('dspBoss').hidden && (!focused || focused === $('dspBoss'))) return startBoss();
+  if (L === manualPanel){ ensureFocus(); return focused && L.contains(focused) ? focused.click() : takeTurn('attack'); }
   ensureFocus();
   if (focused){ if (focused.matches('input')) focused.focus(); else focused.click(); return; }
   if (hunt) throwBall();
@@ -288,8 +294,8 @@ const DS_ACTIONS = {
   a: pressA, b: pressB,
   x: () => topLayer() === manualPanel ? takeTurn('special1') : teamEl.classList.contains('open') ? closeTeam() : openTeam(),
   y: () => topLayer() === manualPanel ? takeTurn('special2') : shopEl.classList.contains('open') ? closeShop() : openShop(),
-  start: () => document.getElementById('settingsBtn').click(),
-  select: () => { autoBtn.click(); toast(autoOn ? 'Auto boj (idle)' : 'Ruční tahový boj – vyber akci'); },
+  start: () => topLayer() === manualPanel ? closeFight() : document.getElementById('settingsBtn').click(),
+  select: () => { autoBtn.click(); toast(autoOn ? 'Auto boj (idle)' : 'Ruční boj – soupeř čeká, zvol Bojovat'); },
   power: toggleFullscreen,
 };
 let repeatTimer = 0;
