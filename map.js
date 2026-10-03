@@ -282,6 +282,7 @@ async function visitSpecial(k){
     saveParty();
     [523, 659, 784, 1047].forEach((f, i) => beep(f, 0.12, 0.05, 'square', i * 0.12));
     toast('Tvoji pokémoni jsou plně vyléčení! Přijď zas.', true);
+    gameEvent('center');
     await wait(900);
     await walkTo(sp, home);
     mapDot = null;

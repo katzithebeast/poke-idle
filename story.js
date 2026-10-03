@@ -57,7 +57,7 @@ const INTRO = [
   [PROF, 'Každá aréna má svého Pána. Poraz ho a otevře se cesta dál – i stopa legendy!'],
   [PROF, 'A dej si pozor na Team Rocket. Kradou pokémony!'],
   [{ who: 'player', name: 'Ty' }, 'Rozumím, profesore. Jdu na to!'],
-  [PROF, 'Denní úkoly a úspěchy najdeš v Deníku. Hodně štěstí!'],
+  [PROF, 'Úkoly ode mě uvidíš dole na displeji – ťukni na ně a ukážu ti cestu. Všechny jsou i v Deníku → Příběh. Hodně štěstí!'],
 ].map(([w, text]) => ({ ...w, text }));
 function playIntro(){
   try { localStorage.setItem('pokeIdle.introDone', '1'); } catch {}

@@ -100,7 +100,7 @@ const ACHIEVEMENTS = [
   { k: 'lv100', name: 'Mistr', desc: 'Vytrénuj pokémona na Lv 100', cur: () => Math.max(0, ...party.mons.map(m => m.lvl)), goal: 100, reward: { coins: 20000, balls: { master: 1 } } },
 ];
 const achDone = a => a.cur() >= a.goal;
-const claimableCount = () => quests.list.filter(q => q.prog >= q.n && !q.claimed).length + ACHIEVEMENTS.filter(a => achDone(a) && !achClaimed[a.k]).length;
+const claimableCount = () => mainClaimable().length + quests.list.filter(q => q.prog >= q.n && !q.claimed).length + ACHIEVEMENTS.filter(a => achDone(a) && !achClaimed[a.k]).length;
 
 /* ---------- Události ze hry ---------- */
 let achSeen = new Set(ACHIEVEMENTS.filter(achDone).map(a => a.k));
@@ -132,6 +132,7 @@ function setJournalTab(t){
   journal.classList.toggle('tab-other', t !== 'dex');
   journal.querySelectorAll('[data-jtab]').forEach(b => b.classList.toggle('active', b.dataset.jtab === t));
   jPanel.hidden = t === 'dex';
+  if (t === 'main') renderMain();
   if (t === 'quests') renderQuests();
   if (t === 'ach') renderAch();
   if (t === 'dex') renderDex();
@@ -160,6 +161,7 @@ jPanel.addEventListener('click', (e) => {
   const b = e.target.closest('[data-claim]');
   if (!b || b.disabled) return;
   const id = b.dataset.claim;
+  if (id.startsWith('m:')) return claimMain(id.slice(2));
   if (id.startsWith('q')){
     const q = quests.list[Number(id.slice(1))];
     if (!q || q.claimed || q.prog < q.n) return;
@@ -182,7 +184,7 @@ function updateJournalBadge(){
   const n = claimableCount();
   document.querySelectorAll('[data-act="dex"], #journalBtn').forEach(el => el.classList.toggle('has-claim', n > 0));
   journal.querySelectorAll('[data-jtab]').forEach(b => {
-    const c = b.dataset.jtab === 'quests' ? quests.list.filter(q => q.prog >= q.n && !q.claimed).length
+    const c = b.dataset.jtab === 'main' ? mainClaimable().length : b.dataset.jtab === 'quests' ? quests.list.filter(q => q.prog >= q.n && !q.claimed).length
       : b.dataset.jtab === 'ach' ? ACHIEVEMENTS.filter(a => achDone(a) && !achClaimed[a.k]).length : 0;
     b.dataset.badge = c || '';
   });
@@ -220,4 +222,271 @@ body.ds .journal-panel{ padding:8px 10px; gap:6px; }
 body.ds .q-row{ padding:6px 8px; gap:8px; }
 body.ds .q-main b{ font-size:10px; } body.ds .q-main small{ font-size:10px; }
 body.ds .q-row .btn{ font-size:8px; padding:6px 7px; }
+</style>`);
+
+/* =====================================================================
+   Hlavní úkoly (Příběh): kapitola na každou arénu, zadává Prof. Oak.
+   Vedou hráče od začátku – učí hru postupně (návnada, chytání, ruční boj,
+   mapa, evoluce, trenéři, Centrum, skrýš, legendy). Podmínky se počítají
+   ze stavu hry, takže co už máš hotové ze starší hry, se samo odškrtne
+   a čeká na vyzvednutí. Splněný úkol zůstane splněný (uloží se).
+   Další kapitola se otevře, až jsou splněné všechny úkoly té předchozí.
+   ===================================================================== */
+const MAIN_KEY = 'pokeIdle.main';
+let mainSt = null;
+try { mainSt = JSON.parse(localStorage.getItem(MAIN_KEY)); } catch {}
+mainSt = { done: {}, claimed: {}, seen: -1, ...(mainSt || {}) };
+const saveMain = () => { try { localStorage.setItem(MAIN_KEY, JSON.stringify(mainSt)); } catch {} };
+
+const totalWins = () => Object.values(progress.wins || {}).reduce((a, b) => a + b, 0);
+const maxLvl = () => Math.max(0, ...party.mons.map(m => m.lvl));
+const maxStars = () => Math.max(0, ...party.mons.map(m => m.stars || 1));
+const stat = k => stats[k] || 0;
+// stavební kameny úkolů: text, aktuální hodnota, cíl, kam vede ťuknutí
+const Q = {
+  wins:  n => ({ text: `Vyhraj ${n} soubojů`, cur: totalWins, goal: n }),
+  lvl:   n => ({ text: `Vytrénuj pokémona na Lv ${n}`, cur: maxLvl, goal: n, go: 'team' }),
+  dex:   n => ({ text: `Měj v deníku ${n} druhů pokémonů`, cur: caughtCount, goal: n, go: 'shop' }),
+  stars: n => ({ text: `Spoj kopie – měj pokémona s ${n} ★`, cur: maxStars, goal: n, go: 'team' }),
+  team:  n => ({ text: `Měj v týmu ${n} pokémony`, cur: () => party.team.length, goal: n, go: 'team' }),
+  legend: n => ({ text: n === 1 ? 'Chyť legendárního pokémona' : `Chyť ${n} legendární pokémony`, cur: legendCount, goal: n, go: 'hunts' }),
+  stat:  (k, n, text, go) => ({ text, cur: () => stat(k), goal: n, go }),
+  visit: k => ({ text: `Vycestuj do arény ${ARENAS[k].name} a vyhraj tam souboj`, cur: () => progress.wins[k] || 0, goal: 1, go: 'map:' + k }),
+  boss:  k => ({ text: `Poraz Pána arény: ${ARENAS[k].name}`, cur: () => progress.bosses[k] ? 1 : 0, goal: 1, go: 'boss:' + k, boss: true }),
+};
+const CH = (arena, oak, list) => ({ arena, oak, list });
+const MAIN_CHAPTERS = [
+  CH('ocean', ['Začneme zlehka. Tvůj pokémon bojuje sám – za výhry dostáváš mince.', 'Úkoly ode mě uvidíš dole na displeji. Ťukni na ně a ukážu ti cestu.'], [
+    Q.wins(5),
+    { ...Q.stat('lure', 1, 'Otevři v Obchodě první návnadu', 'shop:lures'), r: { balls: { poke: 5 } } },
+    { text: 'Chyť pokémona do pokéballu', cur: () => Math.max(stat('catch'), party.mons.length - 1), goal: 1, go: 'hunts', r: { lures: { poke: 1 } } },
+    Q.stat('mwin', 1, 'Vyhraj souboj ručně (SELECT → Bojovat)', 'fight'),
+    { ...Q.lvl(6), r: { items: { candy: 1 } } },
+    Q.boss('ocean'),
+  ]),
+  CH('desert', ['Výborně! Na Mapě teď můžeš cestovat do další arény.', 'V Poušti jsou silnější pokémoni – přiber do týmu parťáky.'], [
+    Q.visit('desert'),
+    { ...Q.team(3), r: { balls: { poke: 5 } } },
+    Q.stat('special', 5, 'Použij v ručním boji 5× speciál (X / Y)', 'fight'),
+    { ...Q.lvl(12), r: { items: { candy: 1 } } },
+    Q.boss('desert'),
+  ]),
+  CH('jungle', ['Pokémoni se s levelem vyvíjejí – sleduj v Týmu záložku Evoluce.', 'A dávej pozor, v okolí se potuluje Team Rocket.'], [
+    Q.visit('jungle'),
+    { ...Q.stat('evolve', 1, 'Vyviň pokémona', 'team'), r: { items: { candy: 2 } } },
+    Q.stat('trainer', 1, 'Poraz trenéra Team Rocket (až tě vyzve)'),
+    { ...Q.stat('center', 1, 'Nech se vyléčit v Pokémon Center (Mapa)', 'map:center1'), r: { items: { potion: 3 } } },
+    { ...Q.dex(10), r: { lures: { poke: 2 } } },
+    Q.lvl(20),
+    Q.boss('jungle'),
+  ]),
+  CH('mountain', ['Team Rocket má na Mapě svou skrýš. Vyčisti ji!', 'Kopie stejného pokémona můžeš spojit – dostane hvězdu navíc.'], [
+    Q.visit('mountain'),
+    { ...Q.stat('hideout', 1, 'Vyčisti skrýš Team Rocket', 'map:hideout'), r: { balls: { ultra: 2 } } },
+    Q.stars(3),
+    Q.dex(20),
+    Q.lvl(30),
+    Q.boss('mountain'),
+  ]),
+  CH('grave', ['Po každém poraženém Pánovi arény se objeví stopa legendy.', 'Najdeš ji v Obchodě → Stopy. Legendu chytíš jen silným ballem!'], [
+    Q.visit('grave'),
+    { ...Q.legend(1), r: { balls: { ultra: 3 } } },
+    Q.stat('mwin', 25, 'Vyhraj 25 soubojů ručně', 'fight'),
+    Q.dex(35),
+    Q.lvl(40),
+    Q.boss('grave'),
+  ]),
+  CH('storm', ['V Bouřlivých horách jsou elektrické typy silné. Vyber tým s rozmyslem.'], [
+    Q.visit('storm'),
+    Q.stat('evolve', 5, 'Vyviň celkem 5 pokémonů', 'team'),
+    Q.stat('trainer', 5, 'Poraz celkem 5 trenérů Team Rocket'),
+    Q.dex(50),
+    Q.lvl(50),
+    Q.boss('storm'),
+  ]),
+  CH('volcano', ['Sopečný kráter prověří, jak silný tým jsi postavil.'], [
+    Q.visit('volcano'),
+    Q.stars(4),
+    Q.stat('hideout', 3, 'Vyčisti skrýš Team Rocket celkem 3×', 'map:hideout'),
+    Q.dex(70),
+    Q.lvl(60),
+    Q.boss('volcano'),
+  ]),
+  CH('nether', ['Podsvětí… sem se moc trenérů neodváží. Ty ano.'], [
+    Q.visit('nether'),
+    { ...Q.legend(3), r: { balls: { ultra: 5 } } },
+    Q.stat('lure', 25, 'Otevři celkem 25 návnad', 'shop:lures'),
+    Q.dex(100),
+    Q.lvl(72),
+    Q.boss('nether'),
+  ]),
+  CH('fel', ['Skoro u cíle. Ještě dvě arény a budeš šampion.'], [
+    Q.visit('fel'),
+    Q.stars(5),
+    Q.stat('trainer', 15, 'Poraz celkem 15 trenérů Team Rocket'),
+    Q.dex(130),
+    Q.lvl(85),
+    Q.boss('fel'),
+  ]),
+  CH('aether', ['Nebeská říše. Poslední zkouška – Cynthia tě čeká.'], [
+    Q.visit('aether'),
+    Q.legend(5),
+    Q.dex(151),
+    Q.lvl(95),
+    Q.boss('aether'),
+  ]),
+  CH(null, ['Jsi šampion! Ale deník ještě není plný…', 'Shiny pokémoni, legendy a Lv 100 – to je výzva pro opravdové mistry.'], [
+    { text: 'Chyť shiny pokémona', cur: shinyCount, goal: 1, go: 'hunts', r: { coins: 5000, lures: { master: 1 } } },
+    { ...Q.legend(8), r: { coins: 8000, balls: { master: 1 } } },
+    { ...Q.stat('hideout', 10, 'Vyčisti skrýš Team Rocket celkem 10×', 'map:hideout'), r: { coins: 8000 } },
+    { ...Q.lvl(100), r: { coins: 15000, balls: { master: 1 } } },
+    { ...Q.dex(300), r: { coins: 20000, balls: { master: 2 } } },
+  ]),
+];
+// klíče a výchozí odměny (rostou s kapitolou; Pán arény dává víc)
+MAIN_CHAPTERS.forEach((ch, ci) => ch.list.forEach((q, i) => {
+  q.k = `${ci}.${i}`; q.ci = ci;
+  q.reward = q.r || (q.boss ? { coins: 500 * (ci + 1), balls: { [ci < 3 ? 'great' : 'ultra']: 3 } } : { coins: 150 * (ci + 1) });
+}));
+const chapterTitle = ci => MAIN_CHAPTERS[ci].arena ? `Kapitola ${ci + 1} · ${ARENAS[MAIN_CHAPTERS[ci].arena].name}` : 'Šampion';
+const mainDone = q => !!mainSt.done[q.k];
+const chapterDone = ci => MAIN_CHAPTERS[ci].list.every(mainDone);
+// aktuální kapitola = první nesplněná (index za poslední = všechno hotovo)
+function mainChapter(){
+  let ci = 0;
+  while (ci < MAIN_CHAPTERS.length && chapterDone(ci)) ci++;
+  return ci;
+}
+// odškrtne splněné úkoly v otevřených kapitolách (postupně, kapitolu po kapitole)
+function checkMain(silent = false){
+  let changed = false;
+  for (let ci = 0; ci < MAIN_CHAPTERS.length; ci++){
+    for (const q of MAIN_CHAPTERS[ci].list) if (!mainDone(q) && q.cur() >= q.goal){
+      mainSt.done[q.k] = true; changed = true;
+      if (!silent) toast(`Úkol splněn: ${q.text}! Vyzvedni odměnu`, true);
+    }
+    if (!chapterDone(ci)) break;
+  }
+  if (changed){ saveMain(); updateJournalBadge(); }
+  return changed;
+}
+const mainClaimable = () => MAIN_CHAPTERS.flatMap(ch => ch.list).filter(q => mainDone(q) && !mainSt.claimed[q.k]);
+const currentQuest = () => { const ci = mainChapter(); return ci < MAIN_CHAPTERS.length ? MAIN_CHAPTERS[ci].list.find(q => !mainDone(q)) : null; };
+
+function claimMain(k){
+  const list = k === 'all' ? mainClaimable() : mainClaimable().filter(q => q.k === k);
+  if (!list.length) return;
+  const sum = { coins: 0, balls: {}, lures: {}, items: {} };
+  for (const q of list){
+    mainSt.claimed[q.k] = true;
+    sum.coins += q.reward.coins || 0;
+    for (const g of ['balls', 'lures', 'items']) for (const [x, n] of Object.entries(q.reward[g] || {})) sum[g][x] = (sum[g][x] || 0) + n;
+  }
+  saveMain(); giveReward(sum);
+  toast(`${list.length > 1 ? `Odměny za ${list.length} úkolů` : 'Odměna'}: ${rewardText(sum)}`, true);
+  updateJournalBadge();
+  if (journalTab === 'main') renderMain();
+}
+
+function renderMain(){
+  checkMain(true);
+  const cur = mainChapter(), n = mainClaimable().length;
+  let html = n > 1 ? `<button class="btn primary q-claimall" data-claim="m:all">Vyzvednout vše (${n})</button>` : '';
+  // od aktuální kapitoly zpět; starší hotové a vyzvednuté kapitoly jen jako sbalený řádek
+  for (let ci = Math.min(cur, MAIN_CHAPTERS.length - 1); ci >= 0; ci--){
+    const ch = MAIN_CHAPTERS[ci], allClaimed = ch.list.every(q => mainSt.claimed[q.k]);
+    if (allClaimed && ci < cur){ html += `<div class="q-head q-chdone">✓ ${chapterTitle(ci)}</div>`; continue; }
+    html += `<div class="q-head">${chapterTitle(ci)} · ${ch.list.filter(mainDone).length}/${ch.list.length}</div>`
+      + `<div class="q-oak"><b>Prof. Oak:</b> ${ch.oak.join(' ')}</div>`
+      + ch.list.map(q => rowHtml('m:' + q.k, q.text, '', mainDone(q) ? q.goal : Math.min(q.goal, q.cur()), q.goal, q.reward, !!mainSt.claimed[q.k])).join('');
+  }
+  if (cur >= MAIN_CHAPTERS.length) html = '<div class="q-oak"><b>Prof. Oak:</b> Splnil jsi všechno, co jsem pro tebe měl. Jsi opravdový mistr pokémonů!</div>' + html;
+  jPanel.innerHTML = html;
+}
+
+// ťuknutí na úkol: vezme hráče tam, kde se dá splnit
+function goQuest(){
+  const n = mainClaimable().length, q = currentQuest();
+  const journalMain = () => { openJournal(); setJournalTab('main'); };
+  if (n || !q?.go) return journalMain();
+  const [where, arg] = q.go.split(':');
+  if (where === 'shop') return openShop(arg || 'buy');
+  if (where === 'hunts') return openShop('hunts');
+  if (where === 'team') return openTeam();
+  if (where === 'fight'){
+    if (!$('dspFight').hidden) return $('dspFight').click();
+    return toast('Ruční boj: zmáčkni SELECT, nebo počkej na tlačítko Bojovat.');
+  }
+  if (where === 'map' || (where === 'boss' && arg !== arena)){
+    openMap('browse');
+    if (arg && typeof stopPos === 'function' && stopPos(arg)){ mapSel = arg; renderMapPanel(); }
+    return;
+  }
+  if (where === 'boss'){
+    if (bossAvailable()) return startBoss();
+    return toast(`Pán arény tě vyzve po ${BOSS_WINS} výhrách tady (máš ${Math.min(BOSS_WINS, progress.wins[arena] || 0)}).`);
+  }
+  journalMain();
+}
+
+// proužek s aktuálním úkolem na spodním displeji (místo řádku "Soupeř")
+const dspGoal = document.createElement('button');
+dspGoal.className = 'dsp-goal';
+dspGoal.id = 'dspGoal';
+dspGoal.addEventListener('click', goQuest);
+function renderGoal(){
+  if (!document.body.classList.contains('ds')) return;
+  if (!dspGoal.isConnected) document.getElementById('dspEnemy')?.after(dspGoal);   // panel vytváří ds.js (načte se později)
+  checkMain();
+  const n = mainClaimable().length, q = currentQuest();
+  const banner = ['dspBoss', 'dspFight', 'dspTrainer'].some(id => !$(id).hidden);
+  dspGoal.hidden = banner || hunt || bossFight || (!n && !q);
+  $('dspEnemy').hidden = !dspGoal.hidden;
+  if (dspGoal.hidden) return;
+  if (n){
+    dspGoal.className = 'dsp-goal claim';
+    dspGoal.innerHTML = `<span class="g-ic">★</span><span class="g-t">${n > 1 ? `${n} odměny za úkoly` : 'Odměna za úkol'} – vyzvedni si ji</span><span class="g-n">→</span>`;
+    return;
+  }
+  const cur = Math.min(q.goal, q.cur()), ch = MAIN_CHAPTERS[q.ci];
+  dspGoal.className = 'dsp-goal';
+  dspGoal.innerHTML = `<span class="g-ic">▸</span><span class="g-t">${q.text}</span>`
+    + `<span class="g-n">${q.goal > 1 ? `${cur}/${q.goal}` : ch.arena ? `Kap. ${q.ci + 1}` : 'Šampion'}</span>`
+    + (q.goal > 1 ? `<i class="g-bar" style="--p:${cur / q.goal * 100}%"></i>` : '');
+}
+setInterval(renderGoal, 1000);
+setTimeout(() => { checkMain(true); renderGoal(); }, 600);
+
+// Prof. Oak zadá novou kapitolu (jednou; při skoku o víc kapitol jen tu poslední)
+setInterval(() => {
+  const ci = mainChapter();
+  if (ci <= mainSt.seen || ci >= MAIN_CHAPTERS.length) return;
+  if (dialogRun || hunt || bossFight || battle.trainerCtx || evoRun || mapMode || document.querySelector('.dm.open, .journal.open, .reveal.open, .case.open')) return;
+  if (!localStorage.getItem('pokeIdle.introDone') && !localStorage.getItem('pokeIdleDev.introDone')) return;
+  mainSt.seen = ci; saveMain();
+  if (ci === 0 && totalWins() < 3) return;   // úplně nový hráč: první kapitolu uvedl už úvod
+  const lines = [{ ...PROF, text: `${chapterTitle(ci)}!` }, ...MAIN_CHAPTERS[ci].oak.map(text => ({ ...PROF, text }))];
+  showDialog(lines);
+}, 3000);
+
+document.head.insertAdjacentHTML('beforeend', `<style>
+.q-oak{ font-size:12px; line-height:1.45; color:var(--w-muted); padding:2px 2px 4px; }
+.q-oak b{ color:var(--w-fg); font-weight:400; }
+.q-chdone{ opacity:.5; }
+.q-claimall{ align-self:flex-start; }
+.dsp-goal{
+  all:unset; cursor:pointer; position:relative; box-sizing:border-box;
+  display:flex; align-items:center; gap:8px; padding:7px 10px 8px;
+  background:var(--w-card); box-shadow:inset 3px 0 0 var(--gold);
+  font-size:12px;
+}
+.dsp-goal[hidden]{ display:none; }
+.dsp-goal .g-ic{ font:700 12px var(--font-title); color:var(--gold); }
+.dsp-goal .g-t{ flex:1; min-width:0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.dsp-goal .g-n{ font:700 10px var(--font-title); color:var(--w-muted); letter-spacing:.04em; }
+.dsp-goal .g-bar{ position:absolute; left:3px; right:0; bottom:0; height:2px; background:var(--w-track); }
+.dsp-goal .g-bar::after{ content:''; position:absolute; left:0; top:0; bottom:0; width:var(--p); background:var(--gold); }
+.dsp-goal.claim{ background:var(--gold); color:var(--ink); box-shadow:none; animation:bossPulse 1.2s steps(2) infinite; }
+.dsp-goal.claim .g-ic, .dsp-goal.claim .g-n{ color:var(--ink); }
+.dsp-goal:active{ background:var(--w-card-h); }
 </style>`);

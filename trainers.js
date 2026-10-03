@@ -264,6 +264,7 @@ function hideoutStep(won){
   }
   delete battle.hideout;
   progress.hideoutDay = new Date().toDateString(); saveProgress();
+  gameEvent('hideout');
   const tier = ARENA_ORDER.indexOf(arena) + 1;
   const reward = { coins: 800 * tier + 1000, lures: { ultra: 1 }, balls: { ultra: 3 }, items: { candy: 2 } };
   if (Math.random() < 0.25) reward.balls.master = 1;
